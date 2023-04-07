@@ -1,316 +1,288 @@
-import tkinter as tk
-import pydoocs
-import numpy as np
-from scipy.optimize import curve_fit
-from scipy.signal import savgol_filter
-from time import sleep
+import tkinter
+from tkinter import ttk
 
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk
 import matplotlib.pyplot as plt
+from calibrate_abcd import calculate_abcd
 
-F0 = 1.3e9
-DELAY = 1
-DELAY_DECAY = 50
-FILLING_DELAY = 100
-PROBE_AMP_ADDR = "XFEL.RF/LLRF.CONTROLLER/C1.M1.A11.L3/PROBE.AMPL"
-PROBE_PHA_ADDR = "XFEL.RF/LLRF.CONTROLLER/C1.M1.A11.L3/PROBE.PHASE"
-FORWARD_AMP_ADDR = "XFEL.RF/LLRF.CONTROLLER/C1.M1.A11.L3/VFORW.AMPL"
-FORWARD_PHA_ADDR = "XFEL.RF/LLRF.CONTROLLER/C1.M1.A11.L3/VFORW.PHASE"
-REFLECTED_AMP_ADDR = "XFEL.RF/LLRF.CONTROLLER/C1.M1.A11.L3/VREFL.AMPL"
-REFLECTED_PHA_ADDR = "XFEL.RF/LLRF.CONTROLLER/C1.M1.A11.L3/VREFL.PHASE"
-DELAY_ADDR = "XFEL.RF/LLRF.CONTROLLER/CTRL.A11.L3/PULSE_DELAY"
-FILLING_ADDR = "XFEL.RF/LLRF.CONTROLLER/CTRL.A11.L3/PULSE_FILLING"
-FLATTOP_ADDR = "XFEL.RF/LLRF.CONTROLLER/CTRL.A11.L3/PULSE_FLATTOP"
-THRESHOLD = 0.70
-FLATTEN_S = 50e-6
-AVG = 1
+import numpy as np
 
-fig, ((ax_I, ax_Q), (ax_det, ax_bw)) = plt.subplots(2, 2, sharex=True)
-
-def AP2C(amplitude, phase):
-    return amplitude * np.exp(1.0j * phase * np.pi / 180)
-
-def C2AP(cmplx):
-    return np.abs(cmplx), np.angle(cmplx, deg=True)
-
-def C2REIM(cmplx):
-    reim = np.zeros((cmplx.shape[0], 2)) 
-    return (np.real(cmplx), np.imag(cmplx))
-
-def find_nearest(array, value):
-    array = np.asarray(array)
-    idx = (np.abs(array - value)).argmin()
-    return idx
-
-def get_regions_duration():
-    return (pydoocs.read(DELAY_ADDR)["data"],
-            pydoocs.read(FILLING_ADDR)["data"],
-            pydoocs.read(FLATTOP_ADDR)["data"])
-
-def get_range_idx(time_trace, decay_length):
-    (delay, filling, flattop) = get_regions_duration()
-    start = delay + FILLING_DELAY
-    stop =  delay + filling + flattop + decay_length
-    return (find_nearest(time_trace, start), find_nearest(time_trace, stop))
-
-def get_pulse_range_idx(time_trace, decay_length):
-    (delay, filling, flattop) = get_regions_duration()
-    start = delay + FILLING_DELAY
-    stop =  delay + filling + min(flattop, decay_length)
-    return (find_nearest(time_trace, start), find_nearest(time_trace, stop))
-
-def get_decay_range_idx(time_trace, decay_length):
-    (delay, filling, flattop) = get_regions_duration()
-    start = delay + filling + flattop + DELAY_DECAY
-    stop = delay + filling + flattop + decay_length
-    return (find_nearest(time_trace, start), find_nearest(time_trace, stop))
-
-def find_QL():
-
-    try:
-        probe = pydoocs.read(PROBE_AMP_ADDR)["data"]
-        (delay, filling, flattop) = get_regions_duration()
-
-        def exponential_decay(t, a, b):
-            return a * np.exp(-t * np.pi * F0 / b)
-
-        time_trace = probe[:, 0]
-        amplitude = probe[:, 1]
-
-        decay_start_idx = get_decay_range_idx(time_trace, 0)[0]
-
-        time_trace = time_trace[decay_start_idx:]
-        time_trace = time_trace - time_trace[0]
-        amplitude = amplitude[decay_start_idx:]
-
-        decay_stop_idx = find_nearest(amplitude, amplitude[0] * THRESHOLD)
-        time_trace = time_trace[:decay_stop_idx]
-        amplitude = amplitude[:decay_stop_idx]
-
-        popt, pcov = curve_fit(exponential_decay, 
-                               time_trace / 1e6, amplitude,
-                               p0 = [amplitude[0], 1e7])
-
-        return popt[1]
-    except:
-        return None
-
-def get_traces_cmplx(avg=1):
-
-    time_trace = None
-
-    probe_cmplx = []
-    forward_cmplx = []
-    reflected_cmplx = []
-
-    for _ in range(avg):
-        probe_amp = pydoocs.read(PROBE_AMP_ADDR)
-        macropulse = probe_amp["macropulse"]
-        time_trace = probe_amp["data"][:, 0]
-        probe_amp = probe_amp["data"][:, 1]
-        probe_pha = pydoocs.read(PROBE_PHA_ADDR, macropulse=macropulse)["data"][:, 1]
-        forward_amp = pydoocs.read(FORWARD_AMP_ADDR, macropulse=macropulse)["data"][:, 1]
-        forward_pha = pydoocs.read(FORWARD_PHA_ADDR, macropulse=macropulse)["data"][:, 1]
-        reflected_amp = pydoocs.read(REFLECTED_AMP_ADDR, macropulse=macropulse)["data"][:, 1]
-        reflected_pha = pydoocs.read(REFLECTED_PHA_ADDR, macropulse=macropulse)["data"][:, 1]
-
-        probe_cmplx.append(AP2C(probe_amp, probe_pha))
-        forward_cmplx.append(AP2C(forward_amp, forward_pha))
-        reflected_cmplx.append(AP2C(reflected_amp, reflected_pha))
-
-        sleep(DELAY)
-
-    return (time_trace, 
-            np.mean(probe_cmplx, axis=0),
-            np.mean(forward_cmplx, axis=0),
-            np.mean(reflected_cmplx, axis=0))
-
-
-def calibrate_xy(probe_cmplx, forward_cmplx, reflected_cmplx):
-    cols = probe_cmplx.shape[0]
-    A = np.zeros((cols, 2), dtype=complex)
-    A[:, 0] = forward_cmplx
-    A[:, 1] = reflected_cmplx
-
-    return np.linalg.lstsq(A, probe_cmplx, rcond=None)[0]
-
-def calibrate_abcd(time_trace, hbw,
-                   probe_pulse_cmplx, forward_pulse_cmplx, reflected_pulse_cmplx,
-                   probe_decay_cmplx, forward_decay_cmplx, reflected_decay_cmplx):
-
-    (probe_pulse_re, probe_pulse_im)         = C2REIM(probe_pulse_cmplx)
-    (forward_pulse_re, forward_pulse_im)     = C2REIM(forward_pulse_cmplx)
-    (reflected_pulse_re, reflected_pulse_im) = C2REIM(reflected_pulse_cmplx)
-    (probe_decay_re, probe_decay_im)         = C2REIM(probe_decay_cmplx)
-    (forward_decay_re, forward_decay_im)     = C2REIM(forward_decay_cmplx)
-    (reflected_decay_re, reflected_decay_im) = C2REIM(reflected_decay_cmplx)
-
-    A2 = np.abs(probe_pulse_cmplx)**2
-    dt = (time_trace[1] - time_trace[0]) * 1e-6
-
-    zeros_pulse = np.zeros_like(probe_pulse_re)
-    zeros_decay = np.zeros_like(probe_decay_re)
-
-    A_pulse_re = [forward_pulse_re, -forward_pulse_im, 
-                  reflected_pulse_re, -reflected_pulse_im] * 2
-
-    A_pulse_im = [forward_pulse_im,  forward_pulse_re, 
-                  reflected_pulse_im, -reflected_pulse_re] * 2 
-
-    A_pulse_Q  = ([4 * (  probe_pulse_re * forward_pulse_re   + probe_pulse_im * forward_pulse_im), 
-                   4 * (- probe_pulse_re * forward_pulse_im   + probe_pulse_im * forward_pulse_re),
-                   4 * (  probe_pulse_re * reflected_pulse_re + probe_pulse_im * reflected_pulse_im),
-                   4 * (- probe_pulse_re * reflected_pulse_im + probe_pulse_im * reflected_pulse_re)] + 
-                  [zeros_pulse] * 4)
-
-    A_decay_vforw_re = [forward_decay_re, -forward_decay_im, 
-                        reflected_decay_re, -reflected_decay_im] + [zeros_decay] * 4
-
-    A_decay_vforw_im = [forward_decay_im,  forward_decay_re, 
-                        reflected_decay_im, -reflected_decay_re] + [zeros_decay] * 4
-
-    A_decay_vrefl_re = ([zeros_decay] * 4) + [forward_decay_re, -forward_decay_im, 
-                                              reflected_decay_re, -reflected_decay_im]
-
-    A_decay_vrefl_im = ([zeros_decay] * 4) + [forward_decay_im,  forward_decay_re, 
-                                              reflected_decay_im, -reflected_decay_re]
-
-    A_pulse_re       = np.column_stack(A_pulse_re)
-    A_pulse_im       = np.column_stack(A_pulse_im)
-    A_pulse_Q        = np.column_stack(A_pulse_Q)
-    A_decay_vforw_re = np.column_stack(A_decay_vforw_re)
-    A_decay_vforw_im = np.column_stack(A_decay_vforw_im)
-    A_decay_vrefl_re = np.column_stack(A_decay_vrefl_re)
-    A_decay_vrefl_im = np.column_stack(A_decay_vrefl_im)   
-
-    A = np.vstack((A_pulse_re, 
-                   A_pulse_im,     
-                   A_pulse_Q,       
-                   A_decay_vforw_re,
-                   A_decay_vforw_im, 
-                   A_decay_vrefl_re, 
-                   A_decay_vrefl_im))
-
-    b_pulse_re       = probe_pulse_re
-    b_pulse_im       = probe_pulse_im
-
-    A2_deriv = np.gradient(A2) / dt
-
-    b_pulse_Q        = np.gradient(A2) / (2 * np.pi * hbw * dt) + 2 * A2
-    b_decay_vforw_re = zeros_decay
-    b_decay_vforw_im = zeros_decay
-    b_decay_vrefl_re = probe_decay_re
-    b_decay_vrefl_im = probe_decay_im
-
-    b = np.concatenate((b_pulse_re, 
-                        b_pulse_im, 
-                        b_pulse_Q, 
-                        b_decay_vforw_re, 
-                        b_decay_vforw_im, 
-                        b_decay_vrefl_re, 
-                        b_decay_vrefl_im))
-
-    b = np.reshape(b, (b.shape[0], 1))
-
-    x = np.linalg.lstsq(A, b, rcond=None)[0]
-
-    return (x[0] + 1.0j * x[1], 
-            x[2] + 1.0j * x[3], 
-            x[4] + 1.0j * x[5], 
-            x[6] + 1.0j * x[7])
-
-def compute_bwdet(time_trace, hbw, probe, forward, reflected):
-
-    dt = (time_trace[1] - time_trace[0]) * 1e-6
-    probe_deriv = np.gradient(probe) / dt
-
-    A2 = np.abs(probe) ** 2
-
-    rt = 2*hbw*forward - probe_deriv / (2.0 * np.pi)
-    bwdet = probe * np.conj(rt) / A2
-    return (np.real(bwdet), -np.imag(bwdet))
-
-
-while True:
-    QL = find_QL()
-    hbw = 0.5 * F0 / QL
-    decay_length = np.pi * QL / F0 * 1e6
-    (time_trace, probe_cmplx, forward_cmplx, reflected_cmplx) = get_traces_cmplx(AVG)
-    dt = (time_trace[1] - time_trace[0]) * 1e-6
-
-    max_amp = np.max(np.abs(probe_cmplx))
+class App(tkinter.Frame):
+    F0 = 1.3e9
+    DELAY_DECAY = 50
+    FILLING_DELAY = 100
+    PROBE_AMP_ADDR = "XFEL.RF/LLRF.CONTROLLER/{}.{}.{}/PROBE.AMPL"
+    PROBE_PHA_ADDR = "XFEL.RF/LLRF.CONTROLLER/{}.{}.{}/PROBE.PHASE"
+    FORWARD_AMP_ADDR = "XFEL.RF/LLRF.CONTROLLER/{}.{}.{}/VFORW.AMPL"
+    FORWARD_PHA_ADDR = "XFEL.RF/LLRF.CONTROLLER/{}.{}.{}/VFORW.PHASE"
+    REFLECTED_AMP_ADDR = "XFEL.RF/LLRF.CONTROLLER/{}.{}.{}/VREFL.AMPL"
+    REFLECTED_PHA_ADDR = "XFEL.RF/LLRF.CONTROLLER/{}.{}.{}/VREFL.PHASE"
+    DELAY_ADDR = "XFEL.RF/LLRF.CONTROLLER/CTRL.{}/PULSE_DELAY"
+    FILLING_ADDR = "XFEL.RF/LLRF.CONTROLLER/CTRL.{}/PULSE_FILLING"
+    FLATTOP_ADDR = "XFEL.RF/LLRF.CONTROLLER/CTRL.{}/PULSE_FLATTOP"
+    THRESHOLD = 0.70
+    FLATTEN_S = 50e-6
     
-    probe_cmplx     /= max_amp
-    forward_cmplx   /= max_amp
-    reflected_cmplx /= max_amp
-
-    (start_idx, stop_idx) = get_range_idx(time_trace, decay_length)
+    STATIONS = ["A2.L1", "A3.L2", "A4.L2", "A5.L2"]
+    STATIONS += ["A{}.L3".format(i) for i in range(6, 26)]
     
-    xy = calibrate_xy(probe_cmplx[start_idx:stop_idx],
-                      forward_cmplx[start_idx:stop_idx],
-                      reflected_cmplx[start_idx:stop_idx])
+    MODULES = ["M1", "M2", "M3", "M4"]
+    
+    CAVITIES = ["C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8"]
 
-    x = xy[0]
-    y = xy[1]
+    def __init__(self, root):
 
-    forward_cmplx *= x
-    reflected_cmplx *= y
+        self.station = tkinter.StringVar(root)
+        self.station.set(self.STATIONS[0])
 
-    (start_pulse_idx, stop_pulse_idx) = get_pulse_range_idx(time_trace, decay_length)
-    (start_decay_idx, stop_decay_idx) = get_decay_range_idx(time_trace, decay_length)
+        self.module = tkinter.StringVar(root)
+        self.module.set(self.MODULES[0])
 
-    abcd = calibrate_abcd(time_trace, hbw,
-                          probe_cmplx[start_pulse_idx:stop_pulse_idx],
-                          forward_cmplx[start_pulse_idx:stop_pulse_idx],
-                          reflected_cmplx[start_pulse_idx:stop_pulse_idx],
-                          probe_cmplx[start_decay_idx:stop_decay_idx],
-                          forward_cmplx[start_decay_idx:stop_decay_idx],
-                          reflected_cmplx[start_decay_idx:stop_decay_idx])
+        self.cavity = tkinter.StringVar(root)
+        self.cavity.set(self.CAVITIES[0])
 
-    a = abcd[0]
-    b = abcd[1]
-    c = abcd[2]
-    d = abcd[3]
+        self.root = root
+        
+        param_frame = ttk.Frame(root, padding="3 3 12 12")
+        param_frame.columnconfigure(tuple(range(6)), weight=1)
 
-    corr_forward   = a * forward_cmplx + b * reflected_cmplx
-    corr_reflected = c * forward_cmplx + d * reflected_cmplx
+        result_frame = ttk.Frame(root, padding="3 3 12 12")
+        result_frame.columnconfigure(tuple(range(0, 8, 2)), weight=1)
+        result_frame.columnconfigure(tuple(range(1, 8, 2)), weight=3)
 
-    vprobe_cmplx = corr_forward + corr_reflected
+        self.fig_plots, axes = plt.subplots(nrows=2, ncols=2, 
+                                            sharex=True, figsize=(12, 8))
+        ((self.ax_IQ, self.ax_det), (self.ax_FR, self.ax_bw)) = axes
+ 
+        self.toolbar_frame = tkinter.Frame(root)
+        self.toolbar_frame.pack(side=tkinter.TOP, fill=tkinter.X)
 
+        self.canvas = FigureCanvasTkAgg(self.fig_plots, self.toolbar_frame)
+        self.canvas.draw()
+        self.canvas.get_tk_widget().pack(side=tkinter.TOP, fill=tkinter.BOTH, expand=1)
 
-    (bw, det) = compute_bwdet(time_trace, hbw, probe_cmplx, corr_forward, corr_reflected)
+        self.toolbar = NavigationToolbar2Tk(self.canvas, self.toolbar_frame)
+        self.toolbar.update()
+        self.canvas.get_tk_widget().pack(side=tkinter.TOP, fill=tkinter.BOTH, expand=1) 
 
-    dt = (time_trace[1] - time_trace[0]) * 1e-6
+        ui = ttk.Label(root, text="Parameters:")
+        ui.pack()
 
-    bw  = savgol_filter(bw,  int(FLATTEN_S/dt) * 2 + 1, 3)
-    det = savgol_filter(det, int(FLATTEN_S/dt) * 2 + 1, 3)
+        param_frame.pack(expand=1, fill="both", padx=(3, 10))
 
-    ax_I.cla()
-    ax_Q.cla()
-    ax_det.cla()
-    ax_bw.cla()
+        ui = ttk.Label(root, text="Results:")
+        ui.pack()
 
-    ax_I.plot(time_trace, np.real(probe_cmplx))
-    ax_I.plot(time_trace, np.real(vprobe_cmplx))
+        result_frame.pack(expand=1, fill="both", padx=(3, 10))
 
-    ax_Q.plot(time_trace, np.imag(probe_cmplx))
-    ax_Q.plot(time_trace, np.imag(vprobe_cmplx))
+        param_frame['borderwidth'] = 2
+        param_frame['relief'] = 'groove'
 
+        result_frame['borderwidth'] = 2
+        result_frame['relief'] = 'groove'
 
-    after_delay = time_trace > 100
+        ui = ttk.Label(param_frame, text="Station:")
+        ui.grid(column=0, row=1, sticky=tkinter.E)
 
-    ax_bw.plot(time_trace[after_delay], bw[after_delay])
-    ax_det.plot(time_trace[after_delay], det[after_delay])
+        ui = ttk.OptionMenu(param_frame, self.station, *self.STATIONS, 
+                            command=lambda x: self.clear())
+        ui.grid(column=1, row=1, sticky=tkinter.W)
 
-    fig.show()
+        ui = ttk.Label(param_frame, text="Module:")
+        ui.grid(column=2, row=1, sticky=tkinter.E)
 
-    input("Press a key")
+        ui = ttk.OptionMenu(param_frame, self.module, *self.MODULES, 
+                            command=lambda x: self.clear())
+        ui.grid(column=3, row=1, sticky=tkinter.W)
 
-    print("\n")
-    print("QL:", QL, "decay length (us):", decay_length)
-    print("")
-    print("x (a.u.):", np.abs(x), "x (deg):", np.angle(x, deg=True))
-    print("y (a.u.):", np.abs(y), "y (deg):", np.angle(y, deg=True))
-    print("")
-    print("a:", a, "b:", b, "c:", c, "d:", d)
-    print("a+c:", a+c, "b+d:", b+d)
+        ui = ttk.Label(param_frame, text="Cavity:")
+        ui.grid(column=4, row=1, sticky=tkinter.E)
 
+        ui = ttk.OptionMenu(param_frame, self.cavity, *self.CAVITIES, 
+                            command=lambda x: self.clear())
+        ui.grid(column=5, row=1, sticky=tkinter.W)
+
+        ui = ttk.Label(result_frame, text="QL:")
+        ui.grid(row=1, column=2, sticky=tkinter.E)
+
+        self.QL = ttk.Label(result_frame, text="")
+        self.QL.grid(row=1, column=3, sticky=tkinter.W)
+
+        ui = ttk.Label(result_frame, text="bw:")
+        ui.grid(row=1, column=4, sticky=tkinter.E)
+
+        self.bw = ttk.Label(result_frame, text="")
+        self.bw.grid(row=1, column=5, sticky=tkinter.W)
+
+        ui = ttk.Label(result_frame, text="x:")
+        ui.grid(row=2, column=2, sticky=tkinter.E)
+
+        self.x = ttk.Label(result_frame, text="")
+        self.x.grid(row=2, column=3, sticky=tkinter.W)
+
+        ui = ttk.Label(result_frame, text="y:")
+        ui.grid(row=2, column=4, sticky=tkinter.E)
+
+        self.y = ttk.Label(result_frame, text="")
+        self.y.grid(row=2, column=5, sticky=tkinter.W)
+
+        ui = ttk.Label(result_frame, text="a:")
+        ui.grid(row=3, column=0, sticky=tkinter.E)
+
+        self.a = ttk.Label(result_frame, text="")
+        self.a.grid(row=3, column=1, sticky=tkinter.W)
+
+        ui = ttk.Label(result_frame, text="b:")
+        ui.grid(row=3, column=2, sticky=tkinter.E)
+
+        self.b = ttk.Label(result_frame, text="")
+        self.b.grid(row=3, column=3, sticky=tkinter.W)
+
+        ui = ttk.Label(result_frame, text="c:")
+        ui.grid(row=3, column=4, sticky=tkinter.E)
+        
+        self.c = ttk.Label(result_frame, text="")
+        self.c.grid(row=3, column=5, sticky=tkinter.W)
+
+        ui = ttk.Label(result_frame, text="d:")
+        ui.grid(row=3, column=6, sticky=tkinter.E)
+
+        self.d = ttk.Label(result_frame, text="")
+        self.d.grid(row=3, column=7, sticky=tkinter.W)
+
+        footer = ttk.Frame(self.root, padding="3 3 12 12")
+        footer.pack(side="right")
+
+        ui = ttk.Button(footer, text='Close', command=self._quit)
+        ui.pack(anchor="s", side="right", padx=(3, 10))
+
+        ui = ttk.Button(footer, text='Calibrate', command=self.calibrate)
+        ui.pack(anchor="s", side="right", padx=(3, 10))
+
+        self.root.protocol("WM_DELETE_WINDOW", self._quit)
+        self.root.bind('<Escape>', lambda e: self._quit())
+        self.root.bind_all('<Control-c>', lambda e: self._quit())  
+
+    def clear(self):
+        self.ax_IQ.clear()
+        self.ax_det.clear()
+        self.ax_FR.clear()
+        self.ax_bw.clear()
+
+        self.ax_IQ.set_xlabel("Time (s)")
+        self.ax_det.set_xlabel("Time (s)")
+        self.ax_FR.set_xlabel("Time (s)")
+        self.ax_bw.set_xlabel("Time (s)")
+
+        self.ax_IQ.set_ylabel("(MV/m)")
+        self.ax_det.set_ylabel("(Hz)")
+        self.ax_FR.set_ylabel("(MV/m)")
+        self.ax_bw.set_ylabel("(Hz)")
+
+        self.ax_bw.set_ylim(0, 500)
+        self.ax_det.set_ylim(-500, 500)
+
+        self.ax_IQ.set_title("I&Q")
+        self.ax_det.set_title("Detuning")
+        self.ax_FR.set_title("Amplitudes")
+        self.ax_bw.set_title("Bandwidth") 
+
+        self.QL["text"] = ""
+        self.bw["text"] = ""
+        self.x["text"] = ""
+        self.y["text"] = ""
+        self.a["text"] = ""
+        self.b["text"] = ""
+        self.c["text"] = ""
+        self.d["text"] = ""
+
+        self.fig_plots.tight_layout()
+        self.canvas.draw()
+
+    def calibrate(self):
+        station = self.station.get()
+        module = self.module.get()
+        cavity = self.cavity.get()
+
+        self.clear()
+        result = None
+        ATTEMPTS = 5
+        attempt = ATTEMPTS
+
+        while attempt != 0:
+            try:
+                result = calculate_abcd(self.F0, 
+                                        self.DELAY_DECAY, 
+                                        self.FILLING_DELAY, 
+                                        self.PROBE_AMP_ADDR.format(cavity, module, station), 
+                                        self.PROBE_PHA_ADDR.format(cavity, module, station), 
+                                        self.FORWARD_AMP_ADDR.format(cavity, module, station), 
+                                        self.FORWARD_PHA_ADDR.format(cavity, module, station), 
+                                        self.REFLECTED_AMP_ADDR.format(cavity, module, station), 
+                                        self.REFLECTED_PHA_ADDR.format(cavity, module, station), 
+                                        self.DELAY_ADDR.format(station), 
+                                        self.FILLING_ADDR.format(station), 
+                                        self.FLATTOP_ADDR.format(station), 
+                                        self.THRESHOLD, 
+                                        self.FLATTEN_S)
+            except:
+                attempt -= 1
+
+        if not result:
+            print("Failed to calibrate the signal after", ATTEMPTS, "attempts")
+        else:
+
+            QL = result["QL"]
+            bw = result["bw"]
+            xy = result["xy"]
+            abcd = result["abcd"]
+
+            self.QL["text"] = "{:.5e}".format(QL)
+            self.bw["text"] = "{:.1f} Hz".format(bw)
+            self.x["text"] = "{:.5f}".format(xy[0])
+            self.y["text"] = "{:.5f}".format(xy[1])
+            self.a["text"] = "{:.5f}".format(abcd[0])
+            self.b["text"] = "{:.5f}".format(abcd[1])
+            self.c["text"] = "{:.5f}".format(abcd[2])
+            self.d["text"] = "{:.5f}".format(abcd[3])
+
+            result["time_trace"] *= 1e-6
+
+            self.ax_det.plot(result["time_trace"], result["detuning_xy"], label="Detuning(xy)")
+            self.ax_det.plot(result["time_trace"], result["detuning_abcd"], label="Detuning(abcd)")
+            self.ax_bw.plot(result["time_trace"], result["bandwidth_xy"], label="Bandwidth(xy)")
+            self.ax_bw.plot(result["time_trace"], result["bandwidth_abcd"], label="Bandwidth(abcd)")
+            self.ax_bw.plot(result["time_trace"], 
+                            np.ones_like(result["time_trace"]) * bw, "--", label="Bandwidth(decay)")
+            
+            self.ax_IQ.plot(result["time_trace"], np.real(result["probe"]), label=" Probe I")
+            self.ax_IQ.plot(result["time_trace"], np.real(result["vforw_abcd"] + result["vrefl_abcd"]),
+                                                                       label="VProbe(abcd) I")
+            self.ax_IQ.plot(result["time_trace"], np.imag(result["probe"]), label=" Probe Q")
+            self.ax_IQ.plot(result["time_trace"], np.imag(result["vforw_abcd"] + result["vrefl_abcd"]),
+                                                                       label="VProbe(abcd) Q")
+
+            self.ax_FR.plot(result["time_trace"], np.abs(result["probe"]), label="Probe") 
+            self.ax_FR.plot(result["time_trace"], np.abs(result["vforw_xy"]), label="Forward(xy)") 
+            self.ax_FR.plot(result["time_trace"], np.abs(result["vrefl_xy"]), label="Reflected(xy)") 
+            self.ax_FR.plot(result["time_trace"], np.abs(result["vforw_abcd"]), label="Forward(abcd)") 
+            self.ax_FR.plot(result["time_trace"], np.abs(result["vrefl_abcd"]), label="Reflected(abcd)") 
+
+            self.ax_det.legend(fontsize=8)
+            self.ax_bw.legend(fontsize=8)
+            self.ax_IQ.legend(fontsize=8)
+            self.ax_FR.legend(fontsize=8)
+
+        self.fig_plots.tight_layout()
+        self.canvas.draw()
+
+    def _quit(self):
+        self.root.quit()
+        self.root.destroy()
+
+root = tkinter.Tk()
+root.minsize(600, 600)
+root.title("RF calibration")
+myapp = App(root)
+myapp.root.mainloop()

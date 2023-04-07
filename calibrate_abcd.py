@@ -43,12 +43,12 @@ def get_decay_range_idx(time_trace, decay_length, delay_decay, delay_addr, filli
     stop = delay + filling + flattop + decay_length
     return (find_nearest(time_trace, start), find_nearest(time_trace, stop))
 
-def find_QL(probe_amp_addr, threshold, delay_decay, delay_addr, filling_addr, flattop_addr):
+def find_QL(f0, probe_amp_addr, threshold, delay_decay, delay_addr, filling_addr, flattop_addr):
     probe = pydoocs.read(probe_amp_addr)["data"]
     (delay, filling, flattop) = get_regions_duration(delay_addr, filling_addr, flattop_addr)
 
     def exponential_decay(t, a, b):
-        return a * np.exp(-t * np.pi * F0 / b)
+        return a * np.exp(-t * np.pi * f0 / b)
 
     time_trace = probe[:, 0]
     amplitude = probe[:, 1]
@@ -211,7 +211,8 @@ def calculate_abcd(f0, delay_decay, filling_delay,
                    vrefl_amp_addr, vrefl_pha_addr, 
                    delay_addr, filling_addr, flattop_addr, 
                    threshold, flatten_s):
-    QL = find_QL(probe_amp_addr, threshold, delay_decay, delay_addr, filling_addr, flattop_addr)
+
+    QL = find_QL(f0, probe_amp_addr, threshold, delay_decay, delay_addr, filling_addr, flattop_addr)
     hbw = 0.5 * f0 / QL
     decay_length = np.pi * QL / f0 * 1e6
     (time_trace, probe, vforw_orig, vrefl_orig) = get_traces_cmplx(probe_amp_addr, probe_pha_addr,
@@ -260,25 +261,31 @@ def calculate_abcd(f0, delay_decay, filling_delay,
                           vforw_xy[start_decay_idx:stop_decay_idx],
                           vrefl_xy[start_decay_idx:stop_decay_idx])
 
-    a = abcd[0]
-    b = abcd[1]
-    c = abcd[2]
-    d = abcd[3]
+    a = abcd[0][0]
+    b = abcd[1][0]
+    c = abcd[2][0]
+    d = abcd[3][0]
 
     vforw_abcd = a * vforw_xy + b * vrefl_xy 
     vrefl_abcd = c * vforw_xy + d * vrefl_xy
 
-    (bandwidth, detuning) = compute_bwdet(time_trace, hbw, probe, vforw_abcd, vrefl_abcd)
+    (bandwidth_xy, detuning_xy) = compute_bwdet(time_trace, hbw, probe, vforw_xy, vrefl_xy)
+    (bandwidth_abcd, detuning_abcd) = compute_bwdet(time_trace, hbw, probe, vforw_abcd, vrefl_abcd)
 
     dt = (time_trace[1] - time_trace[0]) * 1e-6
 
-    bandwidth  = savgol_filter(bandwidth,  int(flatten_s/dt) * 2 + 1, 3)
-    detuning = savgol_filter(detuning, int(flatten_s/dt) * 2 + 1, 3)
+
+    if int(flatten_s/dt) * 2 + 1 > 3:
+        bandwidth_xy  = savgol_filter(bandwidth_xy,  int(flatten_s/dt) * 2 + 1, 3)
+        bandwidth_abcd  = savgol_filter(bandwidth_abcd,  int(flatten_s/dt) * 2 + 1, 3)
+        detuning_xy = savgol_filter(detuning_xy, int(flatten_s/dt) * 2 + 1, 3)
+        detuning_abcd = savgol_filter(detuning_abcd, int(flatten_s/dt) * 2 + 1, 3)
 
     result = dict()
 
     result["time_trace"] = time_trace
     result["QL"] = QL
+    result["bw"] = 2*hbw
     result["decay_length"] = decay_length
     result["xy"] = (x, y)
     result["abcd"] = (a, b, c, d)
@@ -289,8 +296,10 @@ def calculate_abcd(f0, delay_decay, filling_delay,
     result["vrefl_xy"] = vrefl_xy * max_amp
     result["vforw_abcd"] = vforw_abcd * max_amp
     result["vrefl_abcd"] = vrefl_abcd * max_amp
-    result["bandwidth"] = bandwidth
-    result["detuning"] = detuning
+    result["bandwidth_xy"] = bandwidth_xy
+    result["detuning_xy"] = detuning_xy
+    result["bandwidth_abcd"] = bandwidth_abcd
+    result["detuning_abcd"] = detuning_abcd
 
     return result
 
@@ -339,10 +348,10 @@ if __name__ == "__main__":
         print("abcd coefficients", result["abcd"])
 
         plt.figure()
-        plt.plot(result["time_trace"], result["detuning"])
+        plt.plot(result["time_trace"], result["detuning_abcd"])
         
         plt.figure()
-        plt.plot(result["time_trace"], result["bandwidth"])
+        plt.plot(result["time_trace"], result["bandwidth_abcd"])
         
         plt.figure()
         plt.plot(result["time_trace"], np.real(result["probe"]))
