@@ -257,11 +257,16 @@ class App(tkinter.Frame):
                             np.ones_like(result["time_trace"]) * bw, "--", label="Bandwidth(decay)")
             
             self.ax_IQ.plot(result["time_trace"], np.real(result["probe"]), label=" Probe I")
+            #self.ax_IQ.plot(result["time_trace"], np.real(result["vforw_xy"] + result["vrefl_xy"]),
+            #                                                           label="VProbe(xy) I")
             self.ax_IQ.plot(result["time_trace"], np.real(result["vforw_abcd"] + result["vrefl_abcd"]),
                                                                        label="VProbe(abcd) I")
             self.ax_IQ.plot(result["time_trace"], np.imag(result["probe"]), label=" Probe Q")
+            #self.ax_IQ.plot(result["time_trace"], np.imag(result["vforw_xy"] + result["vrefl_xy"]),
+            #                                                           label="VProbe(xy) Q")
             self.ax_IQ.plot(result["time_trace"], np.imag(result["vforw_abcd"] + result["vrefl_abcd"]),
                                                                        label="VProbe(abcd) Q")
+            
 
             self.ax_FR.plot(result["time_trace"], np.abs(result["probe"]), label="Probe") 
             self.ax_FR.plot(result["time_trace"], np.abs(result["vforw_xy"]), label="Forward(xy)") 
