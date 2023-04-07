@@ -85,21 +85,21 @@ class App(tkinter.Frame):
         ui = ttk.Label(param_frame, text="Station:")
         ui.grid(column=0, row=1, sticky=tkinter.E)
 
-        ui = ttk.OptionMenu(param_frame, self.station, *self.STATIONS, 
+        ui = ttk.OptionMenu(param_frame, self.station, None, *self.STATIONS, 
                             command=lambda x: self.clear())
         ui.grid(column=1, row=1, sticky=tkinter.W)
 
         ui = ttk.Label(param_frame, text="Module:")
         ui.grid(column=2, row=1, sticky=tkinter.E)
 
-        ui = ttk.OptionMenu(param_frame, self.module, *self.MODULES, 
+        ui = ttk.OptionMenu(param_frame, self.module, None, *self.MODULES, 
                             command=lambda x: self.clear())
         ui.grid(column=3, row=1, sticky=tkinter.W)
 
         ui = ttk.Label(param_frame, text="Cavity:")
         ui.grid(column=4, row=1, sticky=tkinter.E)
 
-        ui = ttk.OptionMenu(param_frame, self.cavity, *self.CAVITIES, 
+        ui = ttk.OptionMenu(param_frame, self.cavity, None, *self.CAVITIES, 
                             command=lambda x: self.clear())
         ui.grid(column=5, row=1, sticky=tkinter.W)
 
