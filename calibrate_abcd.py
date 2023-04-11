@@ -107,7 +107,8 @@ def calibrate_xy(probe_cmplx, forward_cmplx, reflected_cmplx):
 
 def calibrate_abcd(time_trace, hbw,
                    probe_pulse_cmplx, forward_pulse_cmplx, reflected_pulse_cmplx,
-                   probe_decay_cmplx, forward_decay_cmplx, reflected_decay_cmplx):
+                   probe_decay_cmplx, forward_decay_cmplx, reflected_decay_cmplx,
+                   QL_weight = 1):
 
     (probe_pulse_re, probe_pulse_im)         = C2REIM(probe_pulse_cmplx)
     (forward_pulse_re, forward_pulse_im)     = C2REIM(forward_pulse_cmplx)
@@ -128,10 +129,10 @@ def calibrate_abcd(time_trace, hbw,
     A_pulse_im = [forward_pulse_im,  forward_pulse_re, 
                   reflected_pulse_im, -reflected_pulse_re] * 2 
 
-    A_pulse_Q  = ([4 * (  probe_pulse_re * forward_pulse_re   + probe_pulse_im * forward_pulse_im), 
-                   4 * (- probe_pulse_re * forward_pulse_im   + probe_pulse_im * forward_pulse_re),
-                   4 * (  probe_pulse_re * reflected_pulse_re + probe_pulse_im * reflected_pulse_im),
-                   4 * (- probe_pulse_re * reflected_pulse_im + probe_pulse_im * reflected_pulse_re)] + 
+    A_pulse_Q  = ([4 * QL_weight * (  probe_pulse_re * forward_pulse_re   + probe_pulse_im * forward_pulse_im), 
+                   4 * QL_weight * (- probe_pulse_re * forward_pulse_im   + probe_pulse_im * forward_pulse_re),
+                   4 * QL_weight * (  probe_pulse_re * reflected_pulse_re + probe_pulse_im * reflected_pulse_im),
+                   4 * QL_weight * (- probe_pulse_re * reflected_pulse_im + probe_pulse_im * reflected_pulse_re)] + 
                   [zeros_pulse] * 4)
 
     A_decay_vforw_re = [forward_decay_re, -forward_decay_im, 
@@ -167,7 +168,7 @@ def calibrate_abcd(time_trace, hbw,
 
     A2_deriv = np.gradient(A2) / dt
 
-    b_pulse_Q        = np.gradient(A2) / (2 * np.pi * hbw * dt) + 2 * A2
+    b_pulse_Q        = QL_weight * (np.gradient(A2) / (2 * np.pi * hbw * dt) + 2 * A2)
     b_decay_vforw_re = zeros_decay
     b_decay_vforw_im = zeros_decay
     b_decay_vrefl_re = probe_decay_re
@@ -274,6 +275,10 @@ def calculate_abcd(f0, delay_decay, filling_delay,
 
     dt = (time_trace[1] - time_trace[0]) * 1e-6
 
+    bandwidth_xy[np.isnan(bandwidth_xy)] = 0.0
+    bandwidth_abcd[np.isnan(bandwidth_abcd)] = 0.0
+    detuning_xy[np.isnan(detuning_xy)] = 0.0 
+    detuning_abcd[np.isnan(detuning_abcd)] = 0.0 
 
     if int(flatten_s/dt) * 2 + 1 > 3:
         bandwidth_xy  = savgol_filter(bandwidth_xy,  int(flatten_s/dt) * 2 + 1, 3)
