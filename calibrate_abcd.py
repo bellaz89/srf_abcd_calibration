@@ -1,9 +1,12 @@
 import pydoocs
 import numpy as np
-from scipy.optimize import curve_fit
+from scipy.optimize import curve_fit, minimize_scalar
 from scipy.signal import savgol_filter
 from time import sleep
 import warnings
+
+FRAC_OPT = 0.02
+ITER_OPT = 50
 
 def AP2C(amplitude, phase):
     return amplitude * np.exp(1.0j * phase * np.pi / 180)
@@ -254,13 +257,50 @@ def calculate_abcd(f0, delay_decay, filling_delay,
                                                             filling_addr, 
                                                             flattop_addr)
 
-    abcd = calibrate_abcd(time_trace, hbw,
-                          probe[start_pulse_idx:stop_pulse_idx],
-                          vforw_xy[start_pulse_idx:stop_pulse_idx],
-                          vrefl_xy[start_pulse_idx:stop_pulse_idx],
-                          probe[start_decay_idx:stop_decay_idx],
-                          vforw_xy[start_decay_idx:stop_decay_idx],
-                          vrefl_xy[start_decay_idx:stop_decay_idx])
+    dt = (time_trace[1] - time_trace[0]) * 1e-6
+
+    def calibrate_abcd_fun(hbw_t):
+        abcd = calibrate_abcd(time_trace, hbw_t,
+                              probe[start_pulse_idx:stop_pulse_idx],
+                              vforw_xy[start_pulse_idx:stop_pulse_idx],
+                              vrefl_xy[start_pulse_idx:stop_pulse_idx],
+                              probe[start_decay_idx:stop_decay_idx],
+                              vforw_xy[start_decay_idx:stop_decay_idx],
+                              vrefl_xy[start_decay_idx:stop_decay_idx])
+
+        return abcd
+
+    def get_abcd_loss(hbw_t):
+        abcd = calibrate_abcd_fun(hbw_t)
+        a = abcd[0][0]
+        b = abcd[1][0]
+        c = abcd[2][0]
+        d = abcd[3][0]
+
+        vforw_abcd = a * vforw_xy + b * vrefl_xy 
+        vrefl_abcd = c * vforw_xy + d * vrefl_xy
+
+        (bandwidth_abcd, _) = compute_bwdet(time_trace, hbw, probe, vforw_abcd, vrefl_abcd)
+
+        bandwidth_abcd[np.isnan(bandwidth_abcd)] = 0.0
+
+        if int(flatten_s/dt) * 2 + 1 > 3:
+            bandwidth_abcd  = savgol_filter(bandwidth_abcd,  int(flatten_s/dt) * 2 + 1, 3)
+
+        return np.var(bandwidth_abcd[start_idx:-start_idx])
+
+
+    hbws = np.linspace(1-FRAC_OPT, 1+FRAC_OPT, ITER_OPT) * hbw
+    var = []
+
+    for i, hbw_t in enumerate(hbws):
+        var.append(get_abcd_loss(hbw_t))
+
+    hbw_new = hbws[np.argmin(var)]
+    hbw = hbw_new
+    QL = 0.5 * f0 / hbw
+
+    abcd = calibrate_abcd_fun(hbw)
 
     a = abcd[0][0]
     b = abcd[1][0]
@@ -273,7 +313,6 @@ def calculate_abcd(f0, delay_decay, filling_delay,
     (bandwidth_xy, detuning_xy) = compute_bwdet(time_trace, hbw, probe, vforw_xy, vrefl_xy)
     (bandwidth_abcd, detuning_abcd) = compute_bwdet(time_trace, hbw, probe, vforw_abcd, vrefl_abcd)
 
-    dt = (time_trace[1] - time_trace[0]) * 1e-6
 
     bandwidth_xy[np.isnan(bandwidth_xy)] = 0.0
     bandwidth_abcd[np.isnan(bandwidth_abcd)] = 0.0

@@ -210,24 +210,20 @@ class App(tkinter.Frame):
         ATTEMPTS = 5
         attempt = ATTEMPTS
 
-        while attempt != 0:
-            try:
-                result = calculate_abcd(self.F0, 
-                                        self.DELAY_DECAY, 
-                                        self.FILLING_DELAY, 
-                                        self.PROBE_AMP_ADDR.format(cavity, module, station), 
-                                        self.PROBE_PHA_ADDR.format(cavity, module, station), 
-                                        self.FORWARD_AMP_ADDR.format(cavity, module, station), 
-                                        self.FORWARD_PHA_ADDR.format(cavity, module, station), 
-                                        self.REFLECTED_AMP_ADDR.format(cavity, module, station), 
-                                        self.REFLECTED_PHA_ADDR.format(cavity, module, station), 
-                                        self.DELAY_ADDR.format(station), 
-                                        self.FILLING_ADDR.format(station), 
-                                        self.FLATTOP_ADDR.format(station), 
-                                        self.THRESHOLD, 
-                                        self.FLATTEN_S)
-            except:
-                attempt -= 1
+        result = calculate_abcd(self.F0, 
+                                self.DELAY_DECAY, 
+                                self.FILLING_DELAY, 
+                                self.PROBE_AMP_ADDR.format(cavity, module, station), 
+                                self.PROBE_PHA_ADDR.format(cavity, module, station), 
+                                self.FORWARD_AMP_ADDR.format(cavity, module, station), 
+                                self.FORWARD_PHA_ADDR.format(cavity, module, station), 
+                                self.REFLECTED_AMP_ADDR.format(cavity, module, station), 
+                                self.REFLECTED_PHA_ADDR.format(cavity, module, station), 
+                                self.DELAY_ADDR.format(station), 
+                                self.FILLING_ADDR.format(station), 
+                                self.FLATTOP_ADDR.format(station), 
+                                self.THRESHOLD, 
+                                self.FLATTEN_S)
 
         if not result:
             print("Failed to calibrate the signal after", ATTEMPTS, "attempts")
