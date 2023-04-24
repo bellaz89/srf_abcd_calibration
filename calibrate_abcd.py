@@ -169,9 +169,9 @@ def calibrate_abcd(time_trace, hbw,
     b_pulse_re       = probe_pulse_re
     b_pulse_im       = probe_pulse_im
 
-    A2_deriv = np.gradient(A2) / dt
+    A2_deriv = savgol_filter(A2, 101, 3, deriv=1, delta=dt)
 
-    b_pulse_Q        = QL_weight * (np.gradient(A2) / (2 * np.pi * hbw * dt) + 2 * A2)
+    b_pulse_Q        = QL_weight * (A2_deriv/ (2 * np.pi * hbw) + 2 * A2)
     b_decay_vforw_re = zeros_decay
     b_decay_vforw_im = zeros_decay
     b_decay_vrefl_re = probe_decay_re
