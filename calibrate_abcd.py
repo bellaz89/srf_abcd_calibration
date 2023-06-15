@@ -1,6 +1,6 @@
 import pydoocs
 import numpy as np
-from scipy.optimize import curve_fit, minimize_scalar
+from scipy.optimize import curve_fit, minimize_scalar, least_squares
 from scipy.signal import savgol_filter
 from time import sleep
 import warnings
@@ -36,8 +36,8 @@ def get_range_idx(time_trace, decay_length, filling_delay, delay_addr, filling_a
 
 def get_pulse_range_idx(time_trace, decay_length, filling_delay, delay_addr, filling_addr, flattop_addr):
     (delay, filling, flattop) = get_regions_duration(delay_addr, filling_addr, flattop_addr)
-    start = delay + filling_delay
-    stop =  delay + filling + min(flattop, decay_length)
+    start = delay
+    stop =  delay + filling
     return (find_nearest(time_trace, start), find_nearest(time_trace, stop))
 
 def get_decay_range_idx(time_trace, decay_length, delay_decay, delay_addr, filling_addr, flattop_addr):
@@ -108,91 +108,63 @@ def calibrate_xy(probe_cmplx, forward_cmplx, reflected_cmplx):
 
     return np.linalg.lstsq(A, probe_cmplx, rcond=None)[0]
 
-def calibrate_abcd(time_trace, hbw,
-                   probe_pulse_cmplx, forward_pulse_cmplx, reflected_pulse_cmplx,
-                   probe_decay_cmplx, forward_decay_cmplx, reflected_decay_cmplx,
+def calibrate_abcd(hbw,
+                   probe_cmplx, forward_cmplx, reflected_cmplx, dU, U,
                    QL_weight = 1):
 
-    (probe_pulse_re, probe_pulse_im)         = C2REIM(probe_pulse_cmplx)
-    (forward_pulse_re, forward_pulse_im)     = C2REIM(forward_pulse_cmplx)
-    (reflected_pulse_re, reflected_pulse_im) = C2REIM(reflected_pulse_cmplx)
-    (probe_decay_re, probe_decay_im)         = C2REIM(probe_decay_cmplx)
-    (forward_decay_re, forward_decay_im)     = C2REIM(forward_decay_cmplx)
-    (reflected_decay_re, reflected_decay_im) = C2REIM(reflected_decay_cmplx)
+    (probe_re, probe_im)         = C2REIM(probe_cmplx)
+    (forward_re, forward_im)     = C2REIM(forward_cmplx)
+    (reflected_re, reflected_im) = C2REIM(reflected_cmplx)
 
-    A2 = np.abs(probe_pulse_cmplx)**2
-    dt = (time_trace[1] - time_trace[0]) * 1e-6
+    zeros = np.zeros_like(probe_re)
 
-    zeros_pulse = np.zeros_like(probe_pulse_re)
-    zeros_decay = np.zeros_like(probe_decay_re)
+    A_re = [forward_re, -forward_im, 
+            reflected_re, -reflected_im] * 2
 
-    A_pulse_re = [forward_pulse_re, -forward_pulse_im, 
-                  reflected_pulse_re, -reflected_pulse_im] * 2
+    A_im = [forward_im,  forward_re, 
+            reflected_im, -reflected_re] * 2 
 
-    A_pulse_im = [forward_pulse_im,  forward_pulse_re, 
-                  reflected_pulse_im, -reflected_pulse_re] * 2 
+    A_Q  = ([4 * QL_weight * (  probe_re * forward_re   + probe_im * forward_im), 
+             4 * QL_weight * (- probe_re * forward_im   + probe_im * forward_re),
+             4 * QL_weight * (  probe_re * reflected_re + probe_im * reflected_im),
+             4 * QL_weight * (- probe_re * reflected_im + probe_im * reflected_re)] + 
+            [zeros] * 4)
 
-    A_pulse_Q  = ([4 * QL_weight * (  probe_pulse_re * forward_pulse_re   + probe_pulse_im * forward_pulse_im), 
-                   4 * QL_weight * (- probe_pulse_re * forward_pulse_im   + probe_pulse_im * forward_pulse_re),
-                   4 * QL_weight * (  probe_pulse_re * reflected_pulse_re + probe_pulse_im * reflected_pulse_im),
-                   4 * QL_weight * (- probe_pulse_re * reflected_pulse_im + probe_pulse_im * reflected_pulse_re)] + 
-                  [zeros_pulse] * 4)
+    A_re = np.column_stack(A_re)
+    A_im = np.column_stack(A_im)
+    A_Q  = np.column_stack(A_Q)
 
-    A_decay_vforw_re = [forward_decay_re, -forward_decay_im, 
-                        reflected_decay_re, -reflected_decay_im] + [zeros_decay] * 4
+    A = np.vstack((A_re, 
+                   A_im,     
+                   A_Q))
 
-    A_decay_vforw_im = [forward_decay_im,  forward_decay_re, 
-                        reflected_decay_im, -reflected_decay_re] + [zeros_decay] * 4
+    b_re = probe_re
+    b_im = probe_im
+    b_Q  = QL_weight * (dU/ (2 * np.pi * hbw) + 2 * U)
 
-    A_decay_vrefl_re = ([zeros_decay] * 4) + [forward_decay_re, -forward_decay_im, 
-                                              reflected_decay_re, -reflected_decay_im]
+    b = np.concatenate((b_re, 
+                        b_im, 
+                        b_Q))
 
-    A_decay_vrefl_im = ([zeros_decay] * 4) + [forward_decay_im,  forward_decay_re, 
-                                              reflected_decay_im, -reflected_decay_re]
+    #b = np.reshape(b, (b.shape[0], 1))
+    #x = np.linalg.lstsq(A, b, rcond=None)[0]
 
-    A_pulse_re       = np.column_stack(A_pulse_re)
-    A_pulse_im       = np.column_stack(A_pulse_im)
-    A_pulse_Q        = np.column_stack(A_pulse_Q)
-    A_decay_vforw_re = np.column_stack(A_decay_vforw_re)
-    A_decay_vforw_im = np.column_stack(A_decay_vforw_im)
-    A_decay_vrefl_re = np.column_stack(A_decay_vrefl_re)
-    A_decay_vrefl_im = np.column_stack(A_decay_vrefl_im)   
+    def opt_fun(x):
+        vforw_c_cmplx = forward_cmplx * (x[0] + 1.0j * x[1]) + reflected_cmplx * (x[2] + 1.0j * x[3])
+        vrefl_c_cmplx = forward_cmplx * (x[4] + 1.0j * x[5]) + reflected_cmplx * (x[6] + 1.0j * x[7])
 
-    A = np.vstack((A_pulse_re, 
-                   A_pulse_im,     
-                   A_pulse_Q,       
-                   A_decay_vforw_re,
-                   A_decay_vforw_im, 
-                   A_decay_vrefl_re, 
-                   A_decay_vrefl_im))
+        diff_U = np.abs(vforw_c_cmplx)**2 - np.abs(vrefl_c_cmplx)**2
+        #return np.concatenate((np.dot(A, x) - b, dU / (2 * np.pi * hbw) - diff_U))
+        return np.concatenate((np.dot(A, x) - b, 
+                               dU / (2 * np.pi * hbw) - 2*diff_U))
 
-    b_pulse_re       = probe_pulse_re
-    b_pulse_im       = probe_pulse_im
-
-    A2_deriv = savgol_filter(A2, 101, 3, deriv=1, delta=dt)
-
-    b_pulse_Q        = QL_weight * (A2_deriv/ (2 * np.pi * hbw) + 2 * A2)
-    b_decay_vforw_re = zeros_decay
-    b_decay_vforw_im = zeros_decay
-    b_decay_vrefl_re = probe_decay_re
-    b_decay_vrefl_im = probe_decay_im
-
-    b = np.concatenate((b_pulse_re, 
-                        b_pulse_im, 
-                        b_pulse_Q, 
-                        b_decay_vforw_re, 
-                        b_decay_vforw_im, 
-                        b_decay_vrefl_re, 
-                        b_decay_vrefl_im))
-
-    b = np.reshape(b, (b.shape[0], 1))
-
-    x = np.linalg.lstsq(A, b, rcond=None)[0]
+    x = least_squares(opt_fun, [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0]).x
 
     return (x[0] + 1.0j * x[1], 
             x[2] + 1.0j * x[3], 
             x[4] + 1.0j * x[5], 
             x[6] + 1.0j * x[7])
+
 
 def compute_bwdet(time_trace, hbw, probe, forward, reflected):
 
@@ -216,13 +188,14 @@ def calculate_abcd(f0, delay_decay, filling_delay,
                    delay_addr, filling_addr, flattop_addr, 
                    threshold, flatten_s):
 
+    FILTER_RANGE = 101
+
     QL = find_QL(f0, probe_amp_addr, threshold, delay_decay, delay_addr, filling_addr, flattop_addr)
     hbw = 0.5 * f0 / QL
     decay_length = np.pi * QL / f0 * 1e6
     (time_trace, probe, vforw_orig, vrefl_orig) = get_traces_cmplx(probe_amp_addr, probe_pha_addr,
                                                                    vforw_amp_addr, vforw_pha_addr,
                                                                    vrefl_amp_addr, vrefl_pha_addr)
-    dt = (time_trace[1] - time_trace[0]) * 1e-6
 
     max_amp = np.max(np.abs(probe))
     
@@ -258,54 +231,24 @@ def calculate_abcd(f0, delay_decay, filling_delay,
                                                             flattop_addr)
 
     dt = (time_trace[1] - time_trace[0]) * 1e-6
+    U = np.abs(probe)**2
+    dU = savgol_filter(U, FILTER_RANGE, 3, deriv=1, delta=dt)
 
-    def calibrate_abcd_fun(hbw_t):
-        abcd = calibrate_abcd(time_trace, hbw_t,
-                              probe[start_pulse_idx:stop_pulse_idx],
-                              vforw_xy[start_pulse_idx:stop_pulse_idx],
-                              vrefl_xy[start_pulse_idx:stop_pulse_idx],
-                              probe[start_decay_idx:stop_decay_idx],
-                              vforw_xy[start_decay_idx:stop_decay_idx],
-                              vrefl_xy[start_decay_idx:stop_decay_idx])
+    start_pulse_idx += FILTER_RANGE
+    stop_pulse_idx -= FILTER_RANGE 
+    start_decay_idx += FILTER_RANGE
+    stop_decay_idx -= FILTER_RANGE 
 
-        return abcd
+    probe_r = np.concatenate((probe[start_pulse_idx:stop_pulse_idx], probe[start_decay_idx:stop_decay_idx]))
+    vforw_r = np.concatenate((vforw_xy[start_pulse_idx:stop_pulse_idx], vforw_xy[start_decay_idx:stop_decay_idx]))
+    vrefl_r = np.concatenate((vrefl_xy[start_pulse_idx:stop_pulse_idx], vrefl_xy[start_decay_idx:stop_decay_idx]))
+    U_r = np.concatenate((U[start_pulse_idx:stop_pulse_idx], U[start_decay_idx:stop_decay_idx]))
+    dU_r = np.concatenate((dU[start_pulse_idx:stop_pulse_idx], dU[start_decay_idx:stop_decay_idx]))
 
-    def get_abcd_loss(hbw_t):
-        abcd = calibrate_abcd_fun(hbw_t)
-        a = abcd[0][0]
-        b = abcd[1][0]
-        c = abcd[2][0]
-        d = abcd[3][0]
+    print(time_trace[start_pulse_idx], time_trace[stop_pulse_idx])
+    print(time_trace[start_decay_idx], time_trace[stop_decay_idx])
 
-        vforw_abcd = a * vforw_xy + b * vrefl_xy 
-        vrefl_abcd = c * vforw_xy + d * vrefl_xy
-
-        (bandwidth_abcd, _) = compute_bwdet(time_trace, hbw, probe, vforw_abcd, vrefl_abcd)
-
-        bandwidth_abcd[np.isnan(bandwidth_abcd)] = 0.0
-
-        if int(flatten_s/dt) * 2 + 1 > 3:
-            bandwidth_abcd  = savgol_filter(bandwidth_abcd,  int(flatten_s/dt) * 2 + 1, 3)
-
-        return np.var(bandwidth_abcd[start_idx:-start_idx])
-
-
-    hbws = np.linspace(1-FRAC_OPT, 1+FRAC_OPT, ITER_OPT) * hbw
-    var = []
-
-    for i, hbw_t in enumerate(hbws):
-        var.append(get_abcd_loss(hbw_t))
-
-    hbw_new = hbws[np.argmin(var)]
-    hbw = hbw_new
-    QL = 0.5 * f0 / hbw
-
-    abcd = calibrate_abcd_fun(hbw)
-
-    a = abcd[0][0]
-    b = abcd[1][0]
-    c = abcd[2][0]
-    d = abcd[3][0]
+    (a, b, c, d) = calibrate_abcd(hbw, probe_r, vforw_r, vrefl_r, dU_r, U_r, QL_weight = 1)
 
     vforw_abcd = a * vforw_xy + b * vrefl_xy 
     vrefl_abcd = c * vforw_xy + d * vrefl_xy
