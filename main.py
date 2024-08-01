@@ -1,43 +1,66 @@
 import tkinter
 from tkinter import ttk
 
+import time
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk
 import matplotlib.pyplot as plt
-from calibrate_abcd import calculate_abcd
-
+from calibrate_abcd import calculate_abcd, C2AP, AP2C, get_flattop_range_idx
+import pydoocs as pd
 import numpy as np
+import os
 
 class App(tkinter.Frame):
     F0 = 1.3e9
     DELAY_DECAY = 50
     FILLING_DELAY = 100
-    PROBE_AMP_ADDR = "XFEL.RF/LLRF.CONTROLLER/{}.{}.{}/PROBE.AMPL"
-    PROBE_PHA_ADDR = "XFEL.RF/LLRF.CONTROLLER/{}.{}.{}/PROBE.PHASE"
-    FORWARD_AMP_ADDR = "XFEL.RF/LLRF.CONTROLLER/{}.{}.{}/VFORW.AMPL"
-    FORWARD_PHA_ADDR = "XFEL.RF/LLRF.CONTROLLER/{}.{}.{}/VFORW.PHASE"
-    REFLECTED_AMP_ADDR = "XFEL.RF/LLRF.CONTROLLER/{}.{}.{}/VREFL.AMPL"
-    REFLECTED_PHA_ADDR = "XFEL.RF/LLRF.CONTROLLER/{}.{}.{}/VREFL.PHASE"
-    DELAY_ADDR = "XFEL.RF/LLRF.CONTROLLER/CTRL.{}/PULSE_DELAY"
-    FILLING_ADDR = "XFEL.RF/LLRF.CONTROLLER/CTRL.{}/PULSE_FILLING"
-    FLATTOP_ADDR = "XFEL.RF/LLRF.CONTROLLER/CTRL.{}/PULSE_FLATTOP"
+    PROBE_AMP_ADDR = "CMTB.RF/LLRF.CONTROLLER/PROBE.SCAV.CMTB/AMPL"
+    PROBE_PHA_ADDR = "CMTB.RF/LLRF.CONTROLLER/PROBE.SCAV.CMTB/PHASE"
+    VFORW_AMP_ADDR = "CMTB.RF/LLRF.CONTROLLER/FORWARD.SCAV.CMTB/AMPL"
+    VFORW_PHA_ADDR = "CMTB.RF/LLRF.CONTROLLER/FORWARD.SCAV.CMTB/PHASE"
+    VREFL_AMP_ADDR = "CMTB.RF/LLRF.CONTROLLER/REFLECTED.SCAV.CMTB/AMPL"
+    VREFL_PHA_ADDR = "CMTB.RF/LLRF.CONTROLLER/REFLECTED.SCAV.CMTB/PHASE"
+
+    PROBE_AMP_CAL_ADDR = "CMTB.RF/LLRF.CONTROLLER/PROBE.SCAV.CMTB/CAL_SCA"
+    PROBE_PHA_CAL_ADDR = "CMTB.RF/LLRF.CONTROLLER/PROBE.SCAV.CMTB/CAL_ROT"
+    VFORW_AMP_CAL_ADDR = "CMTB.RF/LLRF.CONTROLLER/FORWARD.SCAV.CMTB/CAL_SCA"
+    VFORW_PHA_CAL_ADDR = "CMTB.RF/LLRF.CONTROLLER/FORWARD.SCAV.CMTB/CAL_ROT"
+    VREFL_AMP_CAL_ADDR = "CMTB.RF/LLRF.CONTROLLER/REFLECTED.SCAV.CMTB/CAL_SCA"
+    VREFL_PHA_CAL_ADDR = "CMTB.RF/LLRF.CONTROLLER/REFLECTED.SCAV.CMTB/CAL_ROT"
+
+    DELAY_ADDR = "CMTB.RF/LLRF.CONTROLLER/CTRL.SCAV.CMTB/PULSE_DELAY"
+    FILLING_ADDR = "CMTB.RF/LLRF.CONTROLLER/CTRL.SCAV.CMTB/PULSE_FILLING"
+    FLATTOP_ADDR = "CMTB.RF/LLRF.CONTROLLER/CTRL.SCAV.CMTB/PULSE_FLATTOP"
+
+    AI_ADDR = "CMTB.RF/LLRF.CAVITY_ESTIMATOR/SCAV.ESTIMATOR/A.I"
+    AQ_ADDR = "CMTB.RF/LLRF.CAVITY_ESTIMATOR/SCAV.ESTIMATOR/A.Q"
+    BI_ADDR = "CMTB.RF/LLRF.CAVITY_ESTIMATOR/SCAV.ESTIMATOR/B.I"
+    BQ_ADDR = "CMTB.RF/LLRF.CAVITY_ESTIMATOR/SCAV.ESTIMATOR/B.Q"
+    CI_ADDR = "CMTB.RF/LLRF.CAVITY_ESTIMATOR/SCAV.ESTIMATOR/C.I"
+    CQ_ADDR = "CMTB.RF/LLRF.CAVITY_ESTIMATOR/SCAV.ESTIMATOR/C.Q"
+    DI_ADDR = "CMTB.RF/LLRF.CAVITY_ESTIMATOR/SCAV.ESTIMATOR/D.I"
+    DQ_ADDR = "CMTB.RF/LLRF.CAVITY_ESTIMATOR/SCAV.ESTIMATOR/D.Q"
+    HALF_BANDWIDTH_ADDR = "CMTB.RF/LLRF.CAVITY_ESTIMATOR/SCAV.ESTIMATOR/HALF_BANDWIDTH"
+    QL_ADDR = "CMTB.RF/LLRF.CONTROLLER/CONFIG.SCAV.CMTB/QL"
+
+
     THRESHOLD = 0.70
     FLATTEN_S = 50e-6
-    
-    STATIONS = ["A2.L1", "A3.L2", "A4.L2", "A5.L2"]
-    STATIONS += ["A{}.L3".format(i) for i in range(6, 26)]
-    
-    MODULES = ["M1", "M2", "M3", "M4"]
+
+
+    VPM_ADDR = "TTF.RF/GPIB/C{}.MTS.PROBE/CH{}.VALUE.VPM"
+    PM_N = { "C1" : ("12", "0"), 
+             "C2" : ("12", "1"), 
+             "C3" : ("34", "0"), 
+             "C4" : ("34", "1"), 
+             "C5" : ("56", "0"), 
+             "C6" : ("56", "1"), 
+             "C7" : ("78", "0"),
+             "C8" : ("78", "1")}
     
     CAVITIES = ["C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8"]
 
     def __init__(self, root):
-
-        self.station = tkinter.StringVar(root)
-        self.station.set(self.STATIONS[0])
-
-        self.module = tkinter.StringVar(root)
-        self.module.set(self.MODULES[0])
 
         self.cavity = tkinter.StringVar(root)
         self.cavity.set(self.CAVITIES[0])
@@ -81,20 +104,6 @@ class App(tkinter.Frame):
 
         result_frame['borderwidth'] = 2
         result_frame['relief'] = 'groove'
-
-        ui = ttk.Label(param_frame, text="Station:")
-        ui.grid(column=0, row=1, sticky=tkinter.E)
-
-        ui = ttk.OptionMenu(param_frame, self.station, None, *self.STATIONS, 
-                            command=lambda x: self.clear())
-        ui.grid(column=1, row=1, sticky=tkinter.W)
-
-        ui = ttk.Label(param_frame, text="Module:")
-        ui.grid(column=2, row=1, sticky=tkinter.E)
-
-        ui = ttk.OptionMenu(param_frame, self.module, None, *self.MODULES, 
-                            command=lambda x: self.clear())
-        ui.grid(column=3, row=1, sticky=tkinter.W)
 
         ui = ttk.Label(param_frame, text="Cavity:")
         ui.grid(column=4, row=1, sticky=tkinter.E)
@@ -180,8 +189,8 @@ class App(tkinter.Frame):
         self.ax_FR.set_ylabel("(MV/m)")
         self.ax_bw.set_ylabel("(Hz)")
 
-        self.ax_bw.set_ylim(0, 500)
-        self.ax_det.set_ylim(-500, 500)
+        self.ax_bw.set_ylim(0, 3000)
+        self.ax_det.set_ylim(-1500, 1500)
 
         self.ax_IQ.set_title("I&Q")
         self.ax_det.set_title("Detuning")
@@ -201,8 +210,6 @@ class App(tkinter.Frame):
         self.canvas.draw()
 
     def calibrate(self):
-        station = self.station.get()
-        module = self.module.get()
         cavity = self.cavity.get()
 
         self.clear()
@@ -210,18 +217,48 @@ class App(tkinter.Frame):
         ATTEMPTS = 5
         attempt = ATTEMPTS
 
+        mvpm = pd.read(self.VPM_ADDR.format(*self.PM_N[cavity]))["data"]*1e-6
+        probe_amp = pd.read(self.PROBE_AMP_ADDR)["data"]
+        time_trace = probe_amp[:, 0]
+        probe_amp = probe_amp[:, 1]
+        probe_pha = pd.read(self.PROBE_PHA_ADDR)["data"][:, 1]
+
+        (start, stop) = get_flattop_range_idx(time_trace, 0, 0, 
+                                              self.DELAY_ADDR, 
+                                              self.FILLING_ADDR,
+                                              self.FLATTOP_ADDR)
+
+
+        corr_amp = mvpm / np.max(probe_amp)   
+        corr_pha = np.mean(probe_pha[start:stop])
+
+        corr = AP2C(corr_amp, -corr_pha)
+
+        cal_amp = pd.read(self.PROBE_AMP_CAL_ADDR)["data"]
+        cal_pha = pd.read(self.PROBE_PHA_CAL_ADDR)["data"]
+
+        print(start, stop)
+        print(corr_pha, cal_pha)
+
+        (cal_amp, cal_pha) = C2AP(corr * AP2C(cal_amp, cal_pha))
+
+        pd.write(self.PROBE_AMP_CAL_ADDR, cal_amp)
+        pd.write(self.PROBE_PHA_CAL_ADDR, cal_pha)
+
+        print(cal_pha)
+
         result = calculate_abcd(self.F0, 
                                 self.DELAY_DECAY, 
                                 self.FILLING_DELAY, 
-                                self.PROBE_AMP_ADDR.format(cavity, module, station), 
-                                self.PROBE_PHA_ADDR.format(cavity, module, station), 
-                                self.FORWARD_AMP_ADDR.format(cavity, module, station), 
-                                self.FORWARD_PHA_ADDR.format(cavity, module, station), 
-                                self.REFLECTED_AMP_ADDR.format(cavity, module, station), 
-                                self.REFLECTED_PHA_ADDR.format(cavity, module, station), 
-                                self.DELAY_ADDR.format(station), 
-                                self.FILLING_ADDR.format(station), 
-                                self.FLATTOP_ADDR.format(station), 
+                                self.PROBE_AMP_ADDR, 
+                                self.PROBE_PHA_ADDR, 
+                                self.VFORW_AMP_ADDR, 
+                                self.VFORW_PHA_ADDR, 
+                                self.VREFL_AMP_ADDR, 
+                                self.VREFL_PHA_ADDR, 
+                                self.DELAY_ADDR, 
+                                self.FILLING_ADDR, 
+                                self.FLATTOP_ADDR, 
                                 self.THRESHOLD, 
                                 self.FLATTEN_S)
 
@@ -229,9 +266,37 @@ class App(tkinter.Frame):
             print("Failed to calibrate the signal after", ATTEMPTS, "attempts")
         else:
 
-            QL = result["QL"]
-            bw = result["bw"]
+            result["cavity"] = cavity
+            result["timestamp"] = time.time()
+
+            np.savez(str(result["timestamp"]) + "." + 
+                     cavity + ".npz",
+                     **result)
+
+
             xy = result["xy"]
+
+            cal_amp = pd.read(self.VFORW_AMP_CAL_ADDR)["data"]
+            cal_pha = pd.read(self.VFORW_PHA_CAL_ADDR)["data"]
+
+            (cal_amp, cal_pha) = C2AP(xy[0] * AP2C(cal_amp, cal_pha))
+
+            pd.write(self.VFORW_AMP_CAL_ADDR, cal_amp)
+            pd.write(self.VFORW_PHA_CAL_ADDR, cal_pha)
+
+            cal_amp = pd.read(self.VREFL_AMP_CAL_ADDR)["data"]
+            cal_pha = pd.read(self.VREFL_PHA_CAL_ADDR)["data"]
+
+            (cal_amp, cal_pha) = C2AP(xy[1] * AP2C(cal_amp, cal_pha))
+
+            pd.write(self.VREFL_AMP_CAL_ADDR, cal_amp)
+            pd.write(self.VREFL_PHA_CAL_ADDR, cal_pha)
+
+            QL = result["QL"]
+
+            pd.write(self.QL_ADDR, QL)
+
+            bw = result["bw"]
             abcd = result["abcd"]
 
             self.QL["text"] = "{:.5e}".format(QL)
@@ -253,13 +318,13 @@ class App(tkinter.Frame):
                             np.ones_like(result["time_trace"]) * bw, "--", label="Bandwidth(decay)")
             
             self.ax_IQ.plot(result["time_trace"], np.real(result["probe"]), label=" Probe I")
-            #self.ax_IQ.plot(result["time_trace"], np.real(result["vforw_xy"] + result["vrefl_xy"]),
-            #                                                           label="VProbe(xy) I")
+            self.ax_IQ.plot(result["time_trace"], np.real(result["vforw_xy"] + result["vrefl_xy"]),
+                                                                       label="VProbe(xy) I")
             self.ax_IQ.plot(result["time_trace"], np.real(result["vforw_abcd"] + result["vrefl_abcd"]),
                                                                        label="VProbe(abcd) I")
             self.ax_IQ.plot(result["time_trace"], np.imag(result["probe"]), label=" Probe Q")
-            #self.ax_IQ.plot(result["time_trace"], np.imag(result["vforw_xy"] + result["vrefl_xy"]),
-            #                                                           label="VProbe(xy) Q")
+            self.ax_IQ.plot(result["time_trace"], np.imag(result["vforw_xy"] + result["vrefl_xy"]),
+                                                                       label="VProbe(xy) Q")
             self.ax_IQ.plot(result["time_trace"], np.imag(result["vforw_abcd"] + result["vrefl_abcd"]),
                                                                        label="VProbe(abcd) Q")
             
@@ -274,6 +339,24 @@ class App(tkinter.Frame):
             self.ax_bw.legend(fontsize=8)
             self.ax_IQ.legend(fontsize=8)
             self.ax_FR.legend(fontsize=8)
+
+            #ssh_command = ("ssh cmtbcpullscav /usr/bin/python3 " + 
+            #              "/home/bellandi/Public/cmtb-scav-set-qldet/main.py " + 
+            #              "{} {} {} {} {}".format(abcd[0], abcd[1], abcd[2], abcd[3],
+            #              0.5*np.pi*bw))
+
+            pd.write(self.AI_ADDR, np.real(abcd[0]))
+            pd.write(self.AQ_ADDR, np.imag(abcd[0]))
+            pd.write(self.BI_ADDR, np.real(abcd[1]))
+            pd.write(self.BQ_ADDR, np.imag(abcd[1]))
+            pd.write(self.CI_ADDR, np.real(abcd[2]))
+            pd.write(self.CQ_ADDR, np.imag(abcd[2]))
+            pd.write(self.DI_ADDR, np.real(abcd[3]))
+            pd.write(self.DQ_ADDR, np.imag(abcd[3]))
+            pd.write(self.HALF_BANDWIDTH_ADDR, 0.5*bw) 
+
+            #print(ssh_command)
+            #os.system(ssh_command)
 
         self.fig_plots.tight_layout()
         self.canvas.draw()
