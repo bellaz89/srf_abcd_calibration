@@ -58,7 +58,7 @@ class DesyDoocsSCAVStation(Station):
         self.decoupling_d_re_address = self.ctrl_address + "DECOUPLING.D_RE"
         self.decoupling_d_im_address = self.ctrl_address + "DECOUPLING.D_IM"
 
-        self.ql_address = self.config_address + QL
+        self.ql_address = self.config_address + "QL"
 
         self.abcd = [complex(i) for i in [1, 0, 0, 1]]
 
