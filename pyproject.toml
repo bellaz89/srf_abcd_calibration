@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "srf_abcd_calibration"
+authors = [
+  {name = "Andrea Bellandi", email="andrea.bellandi@desy.de"}
+]
+
+mantainers = [
+  {name = "Andrea Bellandi", email="andrea.bellandi@desy.de"}
+]
+
+description = "Helper to calibrate the RF channels of superconducting LLRF systems"
+version = "0.0.1"
+readme = "README.md"
+license = {file = "LICENSE.txt"}
+
+classifiers = [
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+  "Topic :: Scientific/Engineering :: Physics",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.7",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+]
+
+keywords = ["Particle accelerators", "Science"]
+
+requires-python = ">=3.8"
+
+dependencies = [
+  "numpy",
+  "scipy",
+  "matplotlib",
+  "docopt",
+  "importlib",
+  "tomli",
+  "pyepics",
+  "asyncua"
+]
+
+[project.scripts]
+srf_abcd_calibration = "srf_abcd_calibration:main"
