@@ -18,19 +18,17 @@
 """srf_abcd_calibration
 
 Usage:
-    srf_abcd_calibration [--group=<gp>] [--stations=<sts>] [--conf=<cf>] [--nox=<st>] [--verbose] [--list-available] [--list-types] [--bootstrap-conf]
+    srf_abcd_calibration [--conf=<cf>] [--nox=<st>] [--verbose] [--list-available] [--list-types] [--bootstrap-conf]
     srf_abcd_calibration (-h | --help)
 
 Options:
-    -h --help         Show this screen
-    --group=<gp>      Select all stations that belong to a particular group
-    --stations=<sts>  Select all stations using a comma separated list of names
-    --conf=<cf>       Use an alternate .toml configuration
-    --nox=<st>        Run the calibration script on a station in text mode
-    --verbose         Print the calibration results (text mode only)
-    --list-available  Print all available station names and return
-    --list-types      Print all types of stations that can be created and return
-    --bootstrap-conf  Generates a file named config_user.toml with example configuration and return
+    -h --help           Show this screen
+    --conf=<cf>         Use an alternate .toml configuration
+    --nox=<st>          Run the calibration script on a station in text mode
+    --verbose           Print the calibration results (text mode only)
+    --list-available    Print all available station names and return
+    --list-types        Print all types of stations that can be created and return
+    --bootstrap-conf    Generates a file named config_user.toml with example configuration and return
 
 """
 from docopt import docopt
@@ -44,9 +42,9 @@ import main_nox
 def main():
     arguments = docopt(__doc__)
     print(arguments)
-    station_picker = StationPicker(arguments["--conf"],
-                                   arguments["--group"],
-                                   arguments["--stations"])
+
+
+    station_picker = StationPicker(arguments["--conf"])
 
     if arguments["--list-available"]:
         print("Available stations:")
