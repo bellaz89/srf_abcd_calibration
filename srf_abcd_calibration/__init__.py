@@ -28,7 +28,7 @@ Options:
     --verbose           Print the calibration results (text mode only)
     --list-available    Print all available station names and return
     --list-types        Print all types of stations that can be created and return
-    --bootstrap-conf    Generates a file named config_user.toml with example configuration and return
+    --bootstrap-conf    Generates a file named config.toml with example configuration and return
 
 """
 from docopt import docopt
@@ -36,7 +36,6 @@ from importlib_resources import files
 from .station_picker import StationPicker, STATION_TYPES
 import srf_abcd_calibration.main_ui as main_ui
 import srf_abcd_calibration.main_nox as main_nox
-
 
 def main():
     arguments = docopt(__doc__)
@@ -56,8 +55,8 @@ def main():
                 print("  " + name + "  " + "(Not loadable)")
 
     elif arguments["--bootstrap-conf"]:
-        conf_text = files('srf_abcd_calibration').joinpath('config_template.toml').read_text()
-        with open("config_user.toml", w) as f:
+        conf_text = files('srf_abcd_calibration').joinpath('config.toml').read_text()
+        with open("config.toml", "w") as f:
             f.write(conf_text)
 
     elif arguments["--nox"]:

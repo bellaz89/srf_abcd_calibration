@@ -28,7 +28,7 @@ STATION_TYPES = {"DesyDoocsSCAV" : DesyDoocsSCAVStation,
 class StationPicker(object):
     def __init__(self, toml_path=None):
         if toml_path:
-            with open(toml_path, "r") as f:
+            with open(toml_path, "rb") as f:
                 raw_conf = tomli.load(f)
         else:
             conf_text = files('srf_abcd_calibration').joinpath('config.toml').read_text()
