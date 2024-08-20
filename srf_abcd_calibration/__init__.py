@@ -33,17 +33,13 @@ Options:
 """
 from docopt import docopt
 from importlib_resources import files
-from station_picker import StationPicker
-from station import STATION_TYPES
-import main_ui
-import main_nox
+from .station_picker import StationPicker, STATION_TYPES
+import srf_abcd_calibration.main_ui as main_ui
+import srf_abcd_calibration.main_nox as main_nox
 
 
 def main():
     arguments = docopt(__doc__)
-    print(arguments)
-
-
     station_picker = StationPicker(arguments["--conf"])
 
     if arguments["--list-available"]:

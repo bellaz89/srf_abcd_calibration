@@ -15,9 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import numpy as np
-from station import Station, AP2C, C2AP
-
+from .station import Station
 try:
     import pydoocs
 except:
@@ -32,16 +30,17 @@ class DesyDoocsSCAVStation(Station):
         super(DesyDoocsSCAVStation, self).__init__(name, conf)
         self.address = conf["address"]
         splitted_address = self.address.split("/")[:3]
-        base_address = "/".join(splitted_address[:2]) + "/"
-        system_name = splitted_address[-1].split(".", 1)[1] + "/"
-        self.ctrl_address = base_address + "CTRL." + system_name
-        config_address = base_address + "CONFIG." + system_name
-        probe_address = base_address + "PROBE." + system_name
-        vforw_address = base_address + "FORWARD." + system_name
-        vrefl_address = base_address + "REFLECTED." + system_name
+        self.address = "/".join(splitted_address)
+        self.base_address = self.address + "/"
+        self.system_name = splitted_address[-1].split(".", 1)[1]
+        self.ctrl_address = self.base_address + "CTRL." + self.system_name + "/"
+        self.config_address = self.base_address + "CONFIG." + self.system_name + "/"
+        probe_address = self.base_address + "PROBE." + self.system_name + "/"
+        vforw_address = self.base_address + "FORWARD." + self.system_name + "/"
+        vrefl_address = self.base_address + "REFLECTED." + self.system_name + "/"
 
         self.ctrl_address = conf.get("ctrl_address", self.ctrl_address)
-        config_address = conf.get("config_address", ctrl_address)
+        self.config_address = conf.get("config_address", self.config_address)
         probe_address = conf.get("probe_address", probe_address)
         vforw_address = conf.get("vforw_address", vforw_address)
         vrefl_address = conf.get("vrefl_address", vrefl_address)
@@ -76,17 +75,15 @@ class DesyDoocsSCAVStation(Station):
         self.decoupling_d_im_address = self.ctrl_address + "DECOUPLING.D_IM"
 
         self.ql_address = self.config_address + "QL"
-
-        self.abcd = [complex(i) for i in [1, 0, 0, 1]]
-
+        self.f0_address = self.config_address + "F0"
+        self.fs_address = self.config_address + "FS"
 
     def get_rf_traces_params(self):
-
         # Get RF traces with the same macropulse
+        f0 = pydoocs.read(self.f0_address)["data"] * 1e6
+        fs = pydoocs.read(self.fs_address)["data"] * 1e6
         probe_amp = pydoocs.read(self.probe_amp_address)
         macropulse = probe_amp["macropulse"]
-        time_trace = 1.0e-6 * probe_amp["data"][:, 0]
-        fs = 1.0/(time_trace[1] - time_trace[0])
         probe_amp = probe_amp["data"][:, 1]
         probe_pha = pydoocs.read(self.probe_pha_address, macropulse=macropulse)["data"][:, 1]
         vforw_amp = pydoocs.read(self.vforw_amp_address, macropulse=macropulse)["data"][:, 1]
@@ -106,7 +103,8 @@ class DesyDoocsSCAVStation(Station):
         vrefl_amp = vrefl_amp[rf_pulse_time]
         vrefl_pha = vrefl_pha[rf_pulse_time]
 
-        return (fs,
+        return (f0,
+                fs,
                 AP2C(probe_amp, probe_pha),
                 AP2C(vforw_amp, vforw_pha),
                 AP2C(vrefl_amp, vrefl_pha),
@@ -114,17 +112,34 @@ class DesyDoocsSCAVStation(Station):
                 pulse_filling + pulse_flattop)
 
     def get_abcd_scaling(self):
-        return self.abcd
+        a = (pydoocs.read(self.decoupling_a_re_address)["data"][0] +
+             pydoocs.read(self.decoupling_a_im_address)["data"][0] * 1.0j)
+        b = (pydoocs.read(self.decoupling_b_re_address)["data"][0] +
+             pydoocs.read(self.decoupling_b_im_address)["data"][0] * 1.0j)
+        c = (pydoocs.read(self.decoupling_c_re_address)["data"][0] +
+             pydoocs.read(self.decoupling_c_im_address)["data"][0] * 1.0j)
+        d = (pydoocs.read(self.decoupling_d_re_address)["data"][0] +
+             pydoocs.read(self.decoupling_d_im_address)["data"][0] * 1.0j)
+
+        return [a, b, c, d]
 
     def set_abcd_scaling(self, a, b, c, d):
-        self.abcd = [a, b, c, d]
+        pydoocs.write(self.decoupling_a_re_address, [np.real(a)] + [0.0] * 15)
+        pydoocs.write(self.decoupling_a_im_address, [np.imag(a)] + [0.0] * 15)
+        pydoocs.write(self.decoupling_b_re_address, [np.real(b)] + [0.0] * 15)
+        pydoocs.write(self.decoupling_b_im_address, [np.imag(b)] + [0.0] * 15)
+        pydoocs.write(self.decoupling_c_re_address, [np.real(c)] + [0.0] * 15)
+        pydoocs.write(self.decoupling_c_im_address, [np.imag(c)] + [0.0] * 15)
+        pydoocs.write(self.decoupling_d_re_address, [np.real(d)] + [0.0] * 15)
+        pydoocs.write(self.decoupling_d_im_address, [np.imag(d)] + [0.0] * 15)
 
     def get_hbw_decay(self):
         ql = pydoocs.read(self.ql_address)["data"]
         return self.frequency / (2.0 * ql)
 
     def set_hbw_decay(seĺf, hbw):
-        ql = self.frequency / (2.0 * hbw)
+        f0 = self.get_rf_traces_params()[0]
+        ql = f0 / (2.0 * hbw)
         pydoocs.write(self.ql_address, ql)
 
     def get_xy_scaling(self):
@@ -187,12 +202,23 @@ class DesyDoocsMCAVStation(Station):
         self.decoupling_d_re_address = self.address + "DECOUPLING.D_RE"
         self.decoupling_d_im_address = self.address + "DECOUPLING.D_IM"
 
+        self.main_address = self.base_address + "MAIN." + self.system_name + "/"
+        self.main_address = self.conf.get("main_address", self.main_address)
+        sefl.f0_address = self.main_address + "F0"
+        sefl.fs_address = self.main_address + "FS"
         self.hbw = 130
+        self.abcd = [1.0, 0.0, 0.0, 1.0]
 
     def get_hbw_decay(self):
         return self.hbw
 
     def set_hbw_decay(seĺf, hbw):
         self.hbw = hbw
+
+    def get_abcd_scaling(self):
+        return self.abcd
+
+    def set_abcd_scaling(self, a, b, c, d):
+        self.abcd = [a, b, c, d]
 
 

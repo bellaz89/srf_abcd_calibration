@@ -21,16 +21,12 @@ Usage:
 
 Options:
     -h --help           Show this screen
-    --group=<gp>        Select all stations that belong to a particular group
-    --stations=<sts>    Select all stations using a comma separated list of names
     --conf=<cf>         Use an alternate .toml configuration
     --nox=<st>          Run the calibration script on a station in text mode
     --verbose           Print the calibration results (text mode only)
     --list-available    Print all available station names and return
     --list-types        Print all types of stations that can be created and return
     --bootstrap-conf    Generates a file named config_user.toml with example configuration and return
-    --dry-run           Executes the script without executing the calibration
-    --info-station=<st> Print the configuration information of a particular station
 ```
 
 When no options are passed, the program is executed in graphical mode loading all the systems defined in the default [.toml][6] configuration.
@@ -151,17 +147,17 @@ Useful for debugging and presentation.
 | Configuration parameter | Meaning                           | Default     |
 | ----------------------  | --------------------------------- | ----------- |
 | f0                      | Cavity frequency(Hz)              | 1.3e9       |
-| fs                      | Sampling frequency(Hz)            | 10e9        |
+| fs                      | Sampling frequency(Hz)            | 10e6        |
 | flattop_start           | Flattop start(s)                  | 1e-3        |
 | decay_start             | Decay start(s)                    | 2e-3        |
 | decay_stop              | Decay stop(s)                     | 3e-3        |
-| vforw_max_amplitude     | Forward max amplitude(V)          | 7.5e6       |
+| vforw_flattop           | Forward max amplitude(MV)         | 7.5         |
 | hbw                     | Half bandwidth(Hz)                | 65.0        |
 | det0                    | Initial detuning                  | 225.0       |
 | klfd                    | Lorentz force detuning (Hz/MV^2)  | -1.0        |
 | slope                   | Detuning slope (Hz/s)             | 0.0         |
 | amplifier_noise         | Amplifier noise STD (MV)          | 0.1e6       |
-| adc_noise               | ADC noise STD (MV)                | 10.0e3      |
+| adc_noise               | ADC noise STD (MV)                | 0.01        |
 | probe_scaling           | Initial probe mismatch            | 0.83        |
 | cross_coupling_a        | Cross coupling mismatch A         | "1.12+0.1j" |
 | cross_coupling_b        | Cross coupling mismatch B         | "-0.1-0.3j" |

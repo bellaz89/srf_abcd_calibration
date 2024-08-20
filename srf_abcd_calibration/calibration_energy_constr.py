@@ -17,8 +17,8 @@
 
 import numpy as np
 from scipy.signal import savgol_filter
-from calibration_impl import calibrate_energy
-from find_hbw_decay import find_hbw_decay
+from .calibration_impl import calibrate_energy
+from .find_hbw_decay import find_hbw_decay
 
 ORDER_SAVGOL = 3
 

@@ -22,6 +22,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk
 import matplotlib.pyplot as plt
 import numpy as np
+import time
 import os
 
 class App(tkinter.Frame):
@@ -73,16 +74,16 @@ class App(tkinter.Frame):
         result_frame['relief'] = 'groove'
 
         ui = ttk.Label(param_frame, text="F0(Hz):")
-        ui.grid(column=0, row=1, sticky=tkinter.E)
+        ui.grid(row=1, column=0, sticky=tkinter.E)
 
-        self.f0 = ttk.Label(result_frame, text="")
+        self.f0 = ttk.Label(param_frame, text="")
         self.f0.grid(row=1, column=1, sticky=tkinter.W)
 
         ui = ttk.Label(param_frame, text="Fs(Hz):")
-        ui.grid(column=2, row=1, sticky=tkinter.E)
+        ui.grid(row=1, column=2, sticky=tkinter.E)
 
         self.fs = ttk.Label(param_frame, text="")
-        self.fs.grid(row=1, column=1, sticky=tkinter.W)
+        self.fs.grid(row=1, column=3, sticky=tkinter.W)
 
         ui = ttk.Label(param_frame, text="Station:")
         ui.grid(column=4, row=1, sticky=tkinter.E)
@@ -139,23 +140,47 @@ class App(tkinter.Frame):
         self.d = ttk.Label(result_frame, text="")
         self.d.grid(row=3, column=7, sticky=tkinter.W)
 
+        ui = ttk.Label(result_frame, text="a_tot:")
+        ui.grid(row=3, column=0, sticky=tkinter.E)
+
+        self.a_tot = ttk.Label(result_frame, text="")
+        self.a_tot.grid(row=4, column=1, sticky=tkinter.W)
+
+        ui = ttk.Label(result_frame, text="b_tot:")
+        ui.grid(row=4, column=2, sticky=tkinter.E)
+
+        self.b_tot = ttk.Label(result_frame, text="")
+        self.b_tot.grid(row=4, column=3, sticky=tkinter.W)
+
+        ui = ttk.Label(result_frame, text="c_tot:")
+        ui.grid(row=4, column=4, sticky=tkinter.E)
+
+        self.c_tot = ttk.Label(result_frame, text="")
+        self.c_tot.grid(row=4, column=5, sticky=tkinter.W)
+
+        ui = ttk.Label(result_frame, text="d_tot:")
+        ui.grid(row=4, column=6, sticky=tkinter.E)
+
+        self.d_tot = ttk.Label(result_frame, text="")
+        self.d_tot.grid(row=4, column=7, sticky=tkinter.W)
+
         ui = ttk.Label(result_frame, text="Initial detuning(Hz):")
-        ui.grid(row=4, column=0, sticky=tkinter.E)
+        ui.grid(row=5, column=0, sticky=tkinter.E)
 
         self.det0 = ttk.Label(result_frame, text="")
-        self.det0.grid(row=4, column=1, sticky=tkinter.W)
+        self.det0.grid(row=5, column=1, sticky=tkinter.W)
 
-        ui = ttk.Label(result_frame, text="LFD(Hz/(MV/m)²):")
-        ui.grid(row=4, column=0, sticky=tkinter.E)
+        ui = ttk.Label(result_frame, text="LFD(Hz/MV²):")
+        ui.grid(row=5, column=2, sticky=tkinter.E)
 
-        self.det0 = ttk.Label(result_frame, text="")
-        self.det0.grid(row=4, column=1, sticky=tkinter.W)
+        self.klfd = ttk.Label(result_frame, text="")
+        self.klfd.grid(row=5, column=3, sticky=tkinter.W)
 
         ui = ttk.Label(result_frame, text="Detuning slope(Hz/s):")
-        ui.grid(row=4, column=0, sticky=tkinter.E)
+        ui.grid(row=5, column=4, sticky=tkinter.E)
 
         self.slope = ttk.Label(result_frame, text="")
-        self.slope.grid(row=4, column=1, sticky=tkinter.W)
+        self.slope.grid(row=5, column=5, sticky=tkinter.W)
 
         footer = ttk.Frame(self.root, padding="3 3 12 12")
         footer.pack(side="right")
@@ -181,13 +206,10 @@ class App(tkinter.Frame):
         self.ax_FR.set_xlabel("Time (s)")
         self.ax_bw.set_xlabel("Time (s)")
 
-        self.ax_IQ.set_ylabel("Gradient (MV/m)")
+        self.ax_IQ.set_ylabel("Gradient (MV)")
         self.ax_det.set_ylabel("Detuning (Hz)")
-        self.ax_FR.set_ylabel("Gradient (MV/m)")
+        self.ax_FR.set_ylabel("Gradient (MV)")
         self.ax_bw.set_ylabel("Bandwidth (Hz)")
-
-        self.ax_bw.set_ylim(0, 3000)
-        self.ax_det.set_ylim(-1500, 1500)
 
         self.ax_IQ.set_title("I&Q")
         self.ax_det.set_title("Detuning")
@@ -213,12 +235,15 @@ class App(tkinter.Frame):
         self.canvas.draw()
 
     def calibrate(self):
-        station = self.station.get()
+        station = self.station_picker.pick_station(self.station.get())
         self.clear()
+
+        self.ax_bw.set_ylim(*station.plot_hbw_scale)
+        self.ax_det.set_ylim(*station.plot_det_scale)
+
         station.calibrate()
-
-        result = self.get_ui_data()
-
+        time.sleep(1)
+        result = station.get_ui_data()
         f0 = result["f0"]
         fs = result["fs"]
         det0 = result["det0"]
@@ -226,8 +251,9 @@ class App(tkinter.Frame):
         slope = result["slope"]
         xy = result["xy"]
         QL = result["QL"]
-        hbw = result["hbw"]
+        hbw = result["hbw_decay"]
         abcd = result["abcd"]
+        abcd_tot = result["abcd_tot"]
 
         self.QL["text"] = "{:.5e}".format(QL)
         self.hbw["text"] = "{:.3e}".format(hbw)
@@ -237,6 +263,11 @@ class App(tkinter.Frame):
         self.b["text"] = "{:.5f}".format(abcd[1])
         self.c["text"] = "{:.5f}".format(abcd[2])
         self.d["text"] = "{:.5f}".format(abcd[3])
+
+        self.a_tot["text"] = "{:.5f}".format(abcd_tot[0])
+        self.b_tot["text"] = "{:.5f}".format(abcd_tot[1])
+        self.c_tot["text"] = "{:.5f}".format(abcd_tot[2])
+        self.d_tot["text"] = "{:.5f}".format(abcd_tot[3])
 
         self.f0["text"] = "{:.3e}".format(f0)
         self.fs["text"] = "{:.3e}".format(fs)
@@ -281,7 +312,7 @@ def main(picker):
     root = tkinter.Tk()
     root.minsize(600, 600)
     root.title("RF calibration")
-    app = App(root, station_picker)
+    app = App(root, picker)
     app.root.mainloop()
 
 

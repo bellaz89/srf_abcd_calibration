@@ -17,9 +17,10 @@
 
 import numpy as np
 from abc import ABC, abstractmethod
-from calibration_energy_constr import calibrate_energy_constr
-from calibration_impl import calibrate_diagonal
-from find_klfd import find_klfd
+from .calibration_energy_constr import calibrate_energy_constr
+from .calibration_impl import calibrate_diagonal
+from .find_klfd import find_klfd
+from .find_bwdet import find_bwdet
 
 # Amplitude-phase to complex
 def AP2C(amplitude, phase):
@@ -43,8 +44,6 @@ class Station(ABC):
     def __init__(self, name, conf):
         self.name = conf.get("name", name)
         self.conf = conf
-        self.groups = [] if "groups" not in conf else conf["groups"].split()
-        self.frequency = conf["frequency"]
         self.transition_guard = conf.get("transition_guard", 100)
 
         # offset from the start of the filling in (s). Used to remove noisy data
@@ -62,7 +61,14 @@ class Station(ABC):
         # max abcd scaling
         self.max_abcd_scaling = conf.get("max_abcd_scaling", 2.0)
 
-    # return the sampling frequency, the probe, vforw, and vrefl in complex notation
+        # plot scale for detuning
+        self.plot_det_scale = conf.get("plot_det_scale", [-750, 750])
+
+        # plot scale for bandwidth
+        self.plot_hbw_scale = conf.get("plot_hbw_scale", [-250, 1250])
+
+    # return the cavity resonance frequency, the sampling frequency,
+    # the probe, vforw, and vrefl in complex notation
     # the flattop start time, the decay_time
     @abstractmethod
     def get_rf_traces_params(self):
@@ -106,45 +112,57 @@ class Station(ABC):
         pass
 
     # Calibrate the RF signals using the diagonal method
-    def calibrate_xy(self, rf_traces_params):
-        return calibrate_diagonal(rf_traces_params[1],
-                                  rf_traces_params[2],
-                                  rf_traces_params[3])
+    def calibrate_xy(self, probe, vforw, vrefl):
+        return calibrate_diagonal(probe,
+                                  vforw,
+                                  vrefl)
 
     # Calibrate the RF signals using the energy constrained method
-    def calibrate_abcd(self, rf_traces_params):
-        return calibrate_energy_constr(*rf_traces_params,
-                                        transition_guard=self.transition_guard,
-                                        start_time=self.start_time,
-                                        stop_time=self.stop_time)
+    def calibrate_abcd(self, fs, probe_cmplx, vforw_cmplx, vrefl_cmplx,
+                       flattop_start, decay_start):
+
+        return calibrate_energy_constr(fs,
+                                       probe_cmplx,
+                                       vforw_cmplx,
+                                       vrefl_cmplx,
+                                       flattop_start,
+                                       decay_start,
+                                       transition_guard=self.transition_guard,
+                                       start_time=self.start_time,
+                                       stop_time=self.stop_time)
 
     # Calibrate  the RF signals
     def calibrate(self):
-        rf_traces_params = self.get_rf_traces_params()
+        [f0,
+        fs,
+        probe_cmplx,
+        vforw_cmplx,
+        vrefl_cmplx,
+        flattop_start,
+        decay_start] = self.get_rf_traces_params()
 
         # Rescale the probe amplitude
         voltage = self.get_cavity_voltage()
 
         if voltage:
-            probe_abs = np.abs(rf_traces_params[1])
+            probe_abs = np.abs(probe_cmplx)
             probe_scaling = voltage / np.max(probe_abs)
 
-            rf_traces_params[1] *= probe_scaling
+            probe_cmplx *= probe_scaling
 
             probe_scaling *= self.get_probe_amplitude_scaling()
-            probe_scaling = np.clip(scaling, self.min_adc_scaling, self.max_adc_scaling)
-            self.set_probe_amplitude_scaling(scaling)
+            probe_scaling = np.clip(probe_scaling, self.min_adc_scaling, self.max_adc_scaling)
+            self.set_probe_amplitude_scaling(probe_scaling)
 
 
         # Perform XY calibration
-        diag = self.calibrate_xy(rf_traces_params)
-        rf_traces_params[2] *= diag[0]
-        rf_traces_params[3] *= diag[1]
+        diag = self.calibrate_xy(probe_cmplx, vforw_cmplx, vrefl_cmplx)
+        vforw_cmplx *= diag[0]
+        vrefl_cmplx *= diag[3]
 
         (x, y)  = self.get_xy_scaling()
-
         x *= diag[0]
-        y *= diag[4]
+        y *= diag[3]
 
         (x_amp, x_pha) = C2AP(x)
         (y_amp, y_pha) = C2AP(y)
@@ -156,38 +174,56 @@ class Station(ABC):
 
         self.set_xy_scaling(x, y)
 
-        abcd, hbw_decay = self.calibrate_abcd(rf_traces_params)
+        abcd, hbw_decay = self.calibrate_abcd(fs,
+                                              probe_cmplx,
+                                              vforw_cmplx,
+                                              vrefl_cmplx,
+                                              flattop_start,
+                                              decay_start)
 
         self.set_hbw_decay(hbw_decay)
 
         re_abcd = np.real(abcd)
         im_abcd = np.imag(abcd)
 
-        re_abcd = np.clip(re_abcd, 0.0, self.max_abcd_scaling)
-        im_abcd = np.clip(im_abcd, 0.0, self.max_abcd_scaling)
+        re_abcd = np.clip(re_abcd, -self.max_abcd_scaling, self.max_abcd_scaling)
+        im_abcd = np.clip(im_abcd, -self.max_abcd_scaling, self.max_abcd_scaling)
         abcd = re_abcd + 1.0j * im_abcd
 
         self.set_abcd_scaling(*abcd)
 
-    # Display data
     def get_ui_data(self):
+        [f0,
+        fs,
+        probe_cmplx,
+        vforw_cmplx,
+        vrefl_cmplx,
+        flattop_start,
+        decay_start] = self.get_rf_traces_params()
+
         result = dict()
         rf_traces_params = self.get_rf_traces_params()
 
         hbw_decay = self.get_hbw_decay()
 
-        result["f0"] = self.frequency
+        result["f0"] = f0
         result["fs"] = fs
         result["xy"] = self.get_xy_scaling()
         result["abcd"] = self.get_abcd_scaling()
+        abcd_tot = np.array(result["abcd"])
+        abcd_tot[0] *= result["xy"][0]
+        abcd_tot[1] *= result["xy"][1]
+        abcd_tot[2] *= result["xy"][0]
+        abcd_tot[3] *= result["xy"][1]
+        result["abcd_tot"] = abcd_tot
         result["hbw_decay"] = ANG2HZ(hbw_decay)
-        result["QL"] = self.frequency / ANG2HZ(2.0 * hbw_decay)
-
-        vforw_cmplx_corr = result["abcd"][0] * vforw_cmplx + result["abcd"][1] * vrefl_cmplx
-        vrefl_cmplx_corr = result["abcd"][2] * vforw_cmplx + result["abcd"][3] * vrefl_cmplx
+        result["QL"] = f0 / ANG2HZ(2.0 * hbw_decay)
 
         bwdetXY = find_bwdet(fs, hbw_decay,
                              probe_cmplx, vforw_cmplx, self.transition_guard)
+
+        vforw_cmplx_corr = result["abcd"][0] * vforw_cmplx + result["abcd"][1] * vrefl_cmplx
+        vrefl_cmplx_corr = result["abcd"][2] * vforw_cmplx + result["abcd"][3] * vrefl_cmplx
 
         bwdetABCD =  find_bwdet(fs, hbw_decay,
                                 probe_cmplx, vforw_cmplx_corr, self.transition_guard)
@@ -197,10 +233,12 @@ class Station(ABC):
 
         time_trace = np.linspace(0, len(probe_cmplx)/fs, len(probe_cmplx))
 
-        (det0, klfd, slope) = find_klfd(time_trace, probe_cmplx, detABCD)
+        (det0, klfd, slope) = find_klfd(time_trace, probe_cmplx,
+                                        detABCD, self.transition_guard)
 
-        result["kldf"] = ANG2HZ(klfd)
+        result["klfd"] = ANG2HZ(klfd)
         result["det0"] = ANG2HZ(det0)
+        result["slope"] = ANG2HZ(slope)
         result["peak_amp"] = np.max(np.abs(probe_cmplx))
 
         result["time_trace"] = time_trace

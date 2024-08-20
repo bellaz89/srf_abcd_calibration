@@ -8,10 +8,6 @@ authors = [
   {name = "Andrea Bellandi", email="andrea.bellandi@desy.de"}
 ]
 
-mantainers = [
-  {name = "Andrea Bellandi", email="andrea.bellandi@desy.de"}
-]
-
 description = "Helper to calibrate the RF channels of superconducting LLRF systems"
 version = "0.0.1"
 readme = "README.md"
@@ -40,7 +36,7 @@ dependencies = [
   "scipy",
   "matplotlib",
   "docopt",
-  "importlib",
+  "importlib_resources",
   "tomli",
   "pyepics",
   "asyncua"

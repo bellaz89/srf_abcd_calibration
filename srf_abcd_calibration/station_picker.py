@@ -15,12 +15,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from station_desydoocs import DesyDoocsSCAVStation, DesyDoocsMCAVStation
+from .station_desydoocs import DesyDoocsSCAVStation, DesyDoocsMCAVStation
+from .station_dummy import DummyStation
 from importlib_resources import files
 import tomli
 
 STATION_TYPES = {"DesyDoocsSCAV" : DesyDoocsSCAVStation,
-                 "DesyDoocsMCAV" : DesyDoocsMCAVStation}
+                 "DesyDoocsMCAV" : DesyDoocsMCAVStation,
+                 "Dummy" : DummyStation}
 
 # Class to pick one station
 class StationPicker(object):
@@ -39,18 +41,10 @@ class StationPicker(object):
 
             if Station.loadable():
                 station = Station(name, conf)
-                stations[station.name] = station
-
-        if self.unique_items:
-            names_set = set(self.stations)
-            names_set.intersection_update(self.unique_items)
-            self.stations = {name: conf
-                             for name, conf
-                             in self.stations
-                             if name in names_set}
+                self.stations[station.name] = station
 
     def pick_first(self):
-        return list(self.stations.values)[0]
+        return list(self.stations)[0]
 
     def station_names(self):
         return list(self.stations)
