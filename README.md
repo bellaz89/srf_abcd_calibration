@@ -10,6 +10,10 @@ This program refers to an unique combination of an SRF cavity and a LLRF system 
 Installation
 ============
 
+```bash
+  pip install git+https://gitlab.desy.de/msk-llrf/scripts/python/common/calibration-abcd-decay-based
+```
+
 Usage
 =====
 
@@ -56,8 +60,6 @@ Program usage example
 This switch is useful to see if a particular type of LLRF system can be used. This usually (and should) depends on the available packages installed on the system.
 
 - `DesyDoocsSCAV` and `DesyDoocsMCAV` are available when the package `pydoocs` is installed
-- `DesyEpicsSCAV` is available when the package `pyepics`is installed (installed with pip)
-- `DesyOPCUASCAV` is available when the package `asyncua`is installed (installed with pip)
 - `DesyChimeraTKSCAV` is available when the package [`deviceaccess`][7] is installed.
 
 ### Run the program in non-graphical mode and print the results
@@ -114,27 +116,12 @@ Station types
 | ----------------------- | ------------------------------------ | ------- |
 | address                 | MCAV LLRF cavity (.Cx) DOOCS address | None    |
 
-### DesyEpicsSCAV
-
-| Configuration parameter | Meaning                                | Default |
-| ----------------------- | -------------------------------------- | ------- |
-| address                 | SCAV LLRF control system EPICS address | None    |
-
-
-### DesyOPCUASCAV
-
-| Configuration parameter | Meaning                                | Default |
-| ----------------------- | -------------------------------------- | ------- |
-| address                 | SCAV LLRF control system OPCUA address | None    |
-| probe_ch                | Probe RF channel                       | 1       |
-| vforw_ch                | Forward RF channel                     | 0       |
-| vrefl_ch                | Reflected RF channel                   | 2       |
 
 ### DesyChimeraTKSCAV
 
 | Configuration parameter | Meaning                                    | Default |
 | ----------------------- | ------------------------------------------ | ------- |
-| address                 | SCAV LLRF control system DMAP file path    | None    |
+| dmap_path               | SCAV LLRF control system DMAP file path    | None    |
 | probe_ch                | Probe RF channel                           | 1       |
 | vforw_ch                | Forward RF channel                         | 0       |
 | vrefl_ch                | Reflected RF channel                       | 2       |
