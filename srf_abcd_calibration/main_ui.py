@@ -141,7 +141,7 @@ class App(tkinter.Frame):
         self.d.grid(row=3, column=7, sticky=tkinter.W)
 
         ui = ttk.Label(result_frame, text="a_tot:")
-        ui.grid(row=3, column=0, sticky=tkinter.E)
+        ui.grid(row=4, column=0, sticky=tkinter.E)
 
         self.a_tot = ttk.Label(result_frame, text="")
         self.a_tot.grid(row=4, column=1, sticky=tkinter.W)

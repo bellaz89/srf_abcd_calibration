@@ -111,6 +111,9 @@ class DummyStation(Station):
         vforw += normal(scale=self.adc_noise, size=self.samples)
         vrefl += normal(scale=self.adc_noise, size=self.samples)
 
+        print("abcd total:", self.cross_coupling_a, self.cross_coupling_b,
+                             self.cross_coupling_c, self.cross_coupling_d)
+
         return self.f0, self.fs, probe, vforw, vrefl, self.flattop_start, self.decay_start
 
     def get_abcd_scaling(self):
