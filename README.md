@@ -11,8 +11,10 @@ Installation
 ============
 
 ```bash
-  pip install git+https://gitlab.desy.de/msk-llrf/scripts/python/common/calibration-abcd-decay-based
+  python3 -m pip install git+https://gitlab.desy.de/msk-llrf/scripts/python/common/calibration-abcd-decay-based
 ```
+
+Make sure to install the package on the interpreter where either pydoocs or deviceaccess library are present
 
 Usage
 =====
@@ -34,6 +36,11 @@ Options:
 ```
 
 When no options are passed, the program is executed in graphical mode loading all the systems defined in the default [.toml][6] configuration.
+
+Alternatively the script can be run with.
+```bash
+  python3 -m srf_abcd_calibration.main
+```
 
 Program usage example
 ---------------------
@@ -105,26 +112,57 @@ Station types
 
 ### DesyDoocsSCAV
 
-| Configuration parameter | Meaning                                        | Default |
-| ----------------------- | ---------------------------------------------- | ------- |
-| address                 | SCAV LLRF control system (CTRL.) DOOCS address | None    |
+| Configuration parameter      | Meaning                                        | Default |
+| ---------------------------- | ---------------------------------------------- | ------- |
+| address                      | SCAV LLRF control system (CTRL.) DOOCS address | None    |
+| gradient_meter_address       | Optional address of a gradient metering device | None    |
+| gradient_meter_normalization | Cavity gradient normalization                  | 1.0     |
+
+
 
 ### DesyDoocsMCAV
 
 
-| Configuration parameter | Meaning                              | Default |
-| ----------------------- | ------------------------------------ | ------- |
-| address                 | MCAV LLRF cavity (.Cx) DOOCS address | None    |
+| Configuration parameter      | Meaning                                        | Default |
+| ---------------------------- | ---------------------------------------------- | ------- |
+| address                      | MCAV LLRF cavity (.Cx) DOOCS address           | None    |
+| gradient_meter_address       | Optional address of a gradient metering device | None    |
+| gradient_meter_normalization | Cavity gradient normalization                  | 1.0     |
 
 
-### DesyChimeraTKSCAV
+### ChimeraTK
 
-| Configuration parameter | Meaning                                    | Default |
-| ----------------------- | ------------------------------------------ | ------- |
-| dmap_path               | SCAV LLRF control system DMAP file path    | None    |
-| probe_ch                | Probe RF channel                           | 1       |
-| vforw_ch                | Forward RF channel                         | 0       |
-| vrefl_ch                | Reflected RF channel                       | 2       |
+| Configuration parameter      | Meaning                                        | Default |
+| ---------------------------- | ---------------------------------------------- | ------- |
+| dmap_path                    | SCAV LLRF control system DMAP file path        | None    |
+| gradient_meter_address       | Optional address of a gradient metering device | None    |
+| gradient_meter_normalization | Cavity gradient normalization                  | 1.0     |
+| probe_amp_address            | Probe amplitude address                        | None    |
+| probe_pha_address            | Probe phase address                            | None    |
+| vforw_amp_address            | Forward amplitude address                      | None    |
+| vforw_pha_address            | Forward phase address                          | None    |
+| vrefl_amp_address            | Reflected amplitude address                    | None    |
+| vrefl_pha_address            | Reflected phase address                        | None    |
+| probe_cal_amp_address        | Probe amplitude scaling                        | None    |
+| probe_cal_pha_address        | Probe phase scaling                            | None    |
+| vforw_cal_amp_address        | Forward amplitude scaling                      | None    |
+| vforw_cal_pha_address        | Forward phase scaling                          | None    |
+| vrefl_cal_amp_address        | Reflected amplitude scaling                    | None    |
+| vrefl_cal_pha_address        | Reflected phase scaling                        | None    |
+| pulse_delay_address          | Delay time address in (s)                      | None    |
+| pulse_filling_address        | Filling time address in (s)                    | None    |
+| pulse_flattop_address        | Flattop time address in (s)                    | None    |
+| decoupling_a_re_address      | Decoupling address a, real                     | None    |
+| decoupling_a_im_address      | Decoupling address a, imag                     | None    |
+| decoupling_b_re_address      | Decoupling address b, real                     | None    |
+| decoupling_b_im_address      | Decoupling address b, imag                     | None    |
+| decoupling_c_re_address      | Decoupling address c, real                     | None    |
+| decoupling_c_im_address      | Decoupling address c, imag                     | None    |
+| decoupling_d_re_address      | Decoupling address d, real                     | None    |
+| decoupling_d_im_address      | Decoupling address d, imag                     | None    |
+| ql_address                   | QL address                                     | None    |
+| f0_address                   | F0 address in (Hz)                             | None    |
+| fs_address                   | FS address in (Hz)                             | None    |
 
 ### Dummy
 
@@ -154,12 +192,29 @@ Useful for debugging and presentation.
 Example configuration
 ---------------------
 
-**TODO**
+```
+# CMTB SCAV
+[CMTBSCAV]
+name="CMTB/SCAV"
+type="DesyDoocsSCAV"
+address="CMTB.RF/LLRF.CONTROLLER/CTRL.SCAV.CMTB"
 
-Write a new station type
-------------------------
+# CMTB MCAV
+[CMTBMCAV]
+name="CMTB/MCAV"
+type="DesyDoocsSCAV"
+address="CMTB.RF/LLRF.CONTROLLER/C1.M1.MCAV.CMTB"
 
-**TODO**
+# Dummy (simulated) cavity
+[Dummy13]
+name="Dummy/1.3GHz"
+type="Dummy"
+f0=1.3e9
+hbw=65
+
+```
+
+
 
 Contacts
 ========

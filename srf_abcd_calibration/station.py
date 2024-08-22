@@ -82,7 +82,6 @@ class Station(ABC):
     def set_abcd_scaling(self, a, b, c, d):
         pass
 
-    # This methods get/set the measured decay half bandwidth from/to the LLRF control system
     @abstractmethod
     def get_hbw_decay(self):
         pass

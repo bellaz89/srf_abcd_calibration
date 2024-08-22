@@ -16,12 +16,14 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from .station_desydoocs import DesyDoocsSCAVStation, DesyDoocsMCAVStation
+from .station_chimeratk import ChimeraTKStation
 from .station_dummy import DummyStation
 from importlib_resources import files
 import tomli
 
 STATION_TYPES = {"DesyDoocsSCAV" : DesyDoocsSCAVStation,
                  "DesyDoocsMCAV" : DesyDoocsMCAVStation,
+                 "ChimeraTK" : ChimeraTKStation,
                  "Dummy" : DummyStation}
 
 # Class to pick one station

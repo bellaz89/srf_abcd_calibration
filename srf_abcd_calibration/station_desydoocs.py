@@ -29,10 +29,10 @@ class DesyDoocsSCAVStation(Station):
     def __init__(self, name, conf):
         super(DesyDoocsSCAVStation, self).__init__(name, conf)
         self.address = conf["address"]
-        splitted_address = self.address.split("/")[:3]
-        self.address = "/".join(splitted_address)
-        self.base_address = self.address + "/"
-        self.system_name = splitted_address[-1].split(".", 1)[1]
+        self.splitted_address = self.address.split("/")[:3]
+        self.address = "/".join(self.splitted_address) + "/"
+        self.base_address = "/".join(self.splitted_address[:2]) + "/"
+        self.system_name = self.splitted_address[-1].split(".", 1)[1]
         self.ctrl_address = self.base_address + "CTRL." + self.system_name + "/"
         self.config_address = self.base_address + "CONFIG." + self.system_name + "/"
         probe_address = self.base_address + "PROBE." + self.system_name + "/"
@@ -177,6 +177,21 @@ class DesyDoocsMCAVStation(Station):
     def __init__(self, name, conf):
         super(DesyDoocsMCAVStation, self).__init__(name, conf)
 
+        self.system_name = self.splitted_address[-1].split(".", 2)[2]
+
+        self.main_address = self.base_address + "MAIN." + self.system_name + "/"
+        self.ctrl_address = self.base_address + "CTRL." + self.system_name + "/"
+        self.config_address = self.base_address + "CONFIG." + self.system_name + "/"
+
+        self.main_address = self.conf.get("main_address", self.main_address)
+        self.ctrl_address = conf.get("ctrl_address", self.ctrl_address)
+        self.config_address = conf.get("config_address", self.config_address)
+        probe_address = self.address
+        vforw_address = self.address
+        vrefl_address = self.address
+
+
+
         self.probe_amp_address = self.address + "PROBE.AMPL"
         self.probe_pha_address = self.address + "PROBE.PHASE"
         self.vforw_amp_address = self.address + "VFORW.AMPL"
@@ -203,8 +218,6 @@ class DesyDoocsMCAVStation(Station):
         self.decoupling_d_re_address = self.address + "DECOUPLING.D_RE"
         self.decoupling_d_im_address = self.address + "DECOUPLING.D_IM"
 
-        self.main_address = self.base_address + "MAIN." + self.system_name + "/"
-        self.main_address = self.conf.get("main_address", self.main_address)
         sefl.f0_address = self.main_address + "F0"
         sefl.fs_address = self.main_address + "FS"
         self.hbw = 130

@@ -24,7 +24,7 @@ try:
 except:
     da = None
 
-class DesyDoocsSCAVStation(Station):
+class ChimeraTKStation(Station):
     @staticmethod
     def loadable():
         return da is not None
