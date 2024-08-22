@@ -35,8 +35,8 @@ Options:
 from docopt import docopt
 from importlib_resources import files
 from .station_picker import StationPicker, STATION_TYPES
-import .main_ui as main_ui
-import .main_nox as main_nox
+import .main_ui
+import .main_nox
 
 def main():
     arguments = docopt(__doc__)
