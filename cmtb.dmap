@@ -1,0 +1,2 @@
+LOAD_LIB /usr/lib/libChimeraTK-DeviceAccess-DoocsBackend.so
+cmtb_scav (doocs:CMTB.RF/LLRF.CONTROLLER)

@@ -134,7 +134,8 @@ Station types
 
 | Configuration parameter      | Meaning                                        | Default |
 | ---------------------------- | ---------------------------------------------- | ------- |
-| dmap_path                    | SCAV LLRF control system DMAP file path        | None    |
+| dmap_path                    | LLRF control system DMAP file path             | None    |
+| device_name                  | ChimeraTK device name                          | None    |
 | gradient_meter_address       | Optional address of a gradient metering device | None    |
 | gradient_meter_normalization | Cavity gradient normalization                  | 1.0     |
 | probe_amp_address            | Probe amplitude address                        | None    |
@@ -149,9 +150,9 @@ Station types
 | vforw_cal_pha_address        | Forward phase scaling                          | None    |
 | vrefl_cal_amp_address        | Reflected amplitude scaling                    | None    |
 | vrefl_cal_pha_address        | Reflected phase scaling                        | None    |
-| pulse_delay_address          | Delay time address in (s)                      | None    |
-| pulse_filling_address        | Filling time address in (s)                    | None    |
-| pulse_flattop_address        | Flattop time address in (s)                    | None    |
+| pulse_delay_address          | Delay time address in (us)                     | None    |
+| pulse_filling_address        | Filling time address in (us)                   | None    |
+| pulse_flattop_address        | Flattop time address in (us)                   | None    |
 | decoupling_a_re_address      | Decoupling address a, real                     | None    |
 | decoupling_a_im_address      | Decoupling address a, imag                     | None    |
 | decoupling_b_re_address      | Decoupling address b, real                     | None    |
@@ -161,8 +162,8 @@ Station types
 | decoupling_d_re_address      | Decoupling address d, real                     | None    |
 | decoupling_d_im_address      | Decoupling address d, imag                     | None    |
 | ql_address                   | QL address                                     | None    |
-| f0_address                   | F0 address in (Hz)                             | None    |
-| fs_address                   | FS address in (Hz)                             | None    |
+| f0_address                   | F0 address in (MHz)                            | None    |
+| fs_address                   | FS address in (MHz)                            | None    |
 
 ### Dummy
 
