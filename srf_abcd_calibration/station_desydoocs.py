@@ -46,7 +46,7 @@ class DesyDoocsSCAVStation(Station):
         vrefl_address = conf.get("vrefl_address", vrefl_address)
 
         self.gradient_meter_address = conf.get("gradient_meter_address", None)
-        self.gradient_meter_normalization = conf.get("gradient_meter_normalization", 1)
+        self.gradient_meter_normalization = conf.get("gradient_meter_normalization", 1.0)
 
         self.probe_amp_address = probe_address + "AMPL"
         self.probe_pha_address = probe_address + "PHASE"
@@ -135,10 +135,11 @@ class DesyDoocsSCAVStation(Station):
 
     def get_hbw_decay(self):
         ql = pydoocs.read(self.ql_address)["data"]
-        return self.frequency / (2.0 * ql)
+        f0 = pydoocs.read(self.f0_address)["data"] * 1e6
+        return  f0 / (2.0 * ql)
 
     def set_hbw_decay(seĺf, hbw):
-        f0 = self.get_rf_traces_params()[0]
+        f0 = pydoocs.read(self.f0_address)["data"] * 1e6
         ql = f0 / (2.0 * hbw)
         pydoocs.write(self.ql_address, ql)
 

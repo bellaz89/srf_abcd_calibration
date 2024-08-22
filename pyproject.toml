@@ -32,14 +32,14 @@ keywords = ["Particle accelerators", "Science"]
 requires-python = ">=3.8"
 
 dependencies = [
+  "tk",
+  "imagetk"
   "numpy",
   "scipy",
   "matplotlib",
   "docopt",
   "importlib_resources",
-  "tomli",
-  "pyepics",
-  "asyncua"
+  "tomli"
 ]
 
 [project.scripts]
