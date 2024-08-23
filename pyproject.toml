@@ -43,4 +43,4 @@ dependencies = [
 ]
 
 [project.scripts]
-srf_abcd_calibration = "srf_abcd_calibration:main"
+srf_abcd_calibration = "srf_abcd_calibration.main:main"

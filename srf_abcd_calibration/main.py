@@ -35,8 +35,8 @@ Options:
 from docopt import docopt
 from importlib_resources import files
 from .station_picker import StationPicker, STATION_TYPES
-import .main_ui
-import .main_nox
+from .main_ui import main as main_ui
+from .main_nox import main as main_nox
 
 def main():
     arguments = docopt(__doc__)
@@ -61,11 +61,11 @@ def main():
             f.write(conf_text)
 
     elif arguments["--nox"]:
-        main_nox.main(station_picker,
-                      arguments["--nox"],
-                      arguments["--verbose"])
+        main_nox(station_picker,
+                 arguments["--nox"],
+                 arguments["--verbose"])
     else:
-        main_ui.main(station_picker)
+        main_ui(station_picker)
 
 
 if __name__ == "__main__":

@@ -173,7 +173,7 @@ class DesyDoocsSCAVStation(Station):
             return None
 
 
-class DesyDoocsMCAVStation(Station):
+class DesyDoocsMCAVStation(DesyDoocsSCAVStation):
     def __init__(self, name, conf):
         super(DesyDoocsMCAVStation, self).__init__(name, conf)
 
@@ -189,8 +189,6 @@ class DesyDoocsMCAVStation(Station):
         probe_address = self.address
         vforw_address = self.address
         vrefl_address = self.address
-
-
 
         self.probe_amp_address = self.address + "PROBE.AMPL"
         self.probe_pha_address = self.address + "PROBE.PHASE"
@@ -218,8 +216,8 @@ class DesyDoocsMCAVStation(Station):
         self.decoupling_d_re_address = self.address + "DECOUPLING.D_RE"
         self.decoupling_d_im_address = self.address + "DECOUPLING.D_IM"
 
-        sefl.f0_address = self.main_address + "F0"
-        sefl.fs_address = self.main_address + "FS"
+        self.f0_address = self.main_address + "F0"
+        self.fs_address = self.main_address + "FS"
         self.hbw = 130
         self.abcd = [1.0, 0.0, 0.0, 1.0]
 

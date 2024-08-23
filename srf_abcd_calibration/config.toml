@@ -191,57 +191,57 @@ gradient_meter_address="AMTF.RF/RADIPOWER/C8.MTS1.PROBE/POWER.VPM"
 gradient_meter_normalization=1e-6
 
 [AMTF391]
-name="AMTF39/C1"
-type="DesyDoocs
+name="AMTF39/MCAV/C1"
+type="DesyDoocsMCAV"
 address="AMTF.RF/LLRF.CONTROLLER/C1.M1.AMTF39/"
 gradient_meter_address="AMTF.RF/RADIPOWER/C1.MTS1.PROBE/POWER.VPM"
 gradient_meter_normalization=1e-6
 
 [AMTF392]
-name="AMTF39/C2"
-type="DesyDoocs
+name="AMTF39/MCAV/C2"
+type="DesyDoocsMCAV"
 address="AMTF.RF/LLRF.CONTROLLER/C2.M1.AMTF39/"
 gradient_meter_address="AMTF.RF/RADIPOWER/C2.MTS1.PROBE/POWER.VPM"
 gradient_meter_normalization=1e-6
 
 [AMTF393]
-name="AMTF39/C3"
-type="DesyDoocs
+name="AMTF39/MCAV/C3"
+type="DesyDoocsMCAV"
 address="AMTF.RF/LLRF.CONTROLLER/C3.M1.AMTF39/"
 gradient_meter_address="AMTF.RF/RADIPOWER/C3.MTS1.PROBE/POWER.VPM"
 gradient_meter_normalization=1e-6
 
 [AMTF394]
-name="AMTF39/C4"
-type="DesyDoocs
+name="AMTF39/MCAV/C4"
+type="DesyDoocsMCAV"
 address="AMTF.RF/LLRF.CONTROLLER/C4.M1.AMTF39/"
 gradient_meter_address="AMTF.RF/RADIPOWER/C4.MTS1.PROBE/POWER.VPM"
 gradient_meter_normalization=1e-6
 
 [AMTF395]
-name="AMTF39/C5"
-type="DesyDoocs
+name="AMTF39/MCAV/C5"
+type="DesyDoocsMCAV"
 address="AMTF.RF/LLRF.CONTROLLER/C5.M1.AMTF39/"
 gradient_meter_address="AMTF.RF/RADIPOWER/C5.MTS1.PROBE/POWER.VPM"
 radient_meter_normalization=1e-6
 
 [AMTF396]
-name="AMTF39/C6"
-type="DesyDoocs
+name="AMTF39/MCAV/C6"
+type="DesyDoocsMCAV"
 address="AMTF.RF/LLRF.CONTROLLER/C6.M1.AMTF39/"
 gradient_meter_address="AMTF.RF/RADIPOWER/C6.MTS1.PROBE/POWER.VPM"
 gradient_meter_normalization=1e-6
 
 [AMTF397]
-name="AMTF39/C7"
-type="DesyDoocs
+name="AMTF39/MCAV/C7"
+type="DesyDoocsMCAV"
 address="AMTF.RF/LLRF.CONTROLLER/C7.M1.AMTF39/"
 gradient_meter_address="AMTF.RF/RADIPOWER/C7.MTS1.PROBE/POWER.VPM"
 gradient_meter_normalization=1e-6
 
 [AMTF398]
-name="AMTF39/C8"
-type="DesyDoocs
+name="AMTF39/MCAV/C8"
+type="DesyDoocsMCAV"
 address="AMTF.RF/LLRF.CONTROLLER/C8.M1.AMTF39/"
 gradient_meter_address="AMTF.RF/RADIPOWER/C8.MTS1.PROBE/POWER.VPM"
 gradient_meter_normalization=1e-6
