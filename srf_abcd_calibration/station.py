@@ -67,45 +67,55 @@ class Station(ABC):
         # plot scale for bandwidth
         self.plot_hbw_scale = conf.get("plot_hbw_scale", [-250, 1250])
 
-    # return the cavity resonance frequency, the sampling frequency,
+    # return the cavity resonance frequency(Hz), the sampling frequency(Hz),
     # the probe, vforw, and vrefl in complex notation
-    # the flattop start time, the decay_time
+    # the flattop start time, the decay time
     @abstractmethod
     def get_rf_traces_params(self):
         pass
 
+    # get the abcd scaling from hardware, complex
     @abstractmethod
     def get_abcd_scaling(self):
         pass
 
+    # set the abcd scaling to hardware, complex
     @abstractmethod
     def set_abcd_scaling(self, a, b, c, d):
         pass
 
+    # get the half bandwidth to hardware
     @abstractmethod
     def get_hbw_decay(self):
         pass
 
+    # set the half bandwidth to hardware
     @abstractmethod
     def set_hbw_decay(seĺf, hbw):
         pass
 
+    # get the forward and reflected (XY) scaling from hardware, complex
     @abstractmethod
     def get_xy_scaling(self):
         pass
 
+    # set the forward and reflected (XY) scaling to hardware, complex
     @abstractmethod
     def set_xy_scaling(self, x, y):
         pass
 
+    # get the probe scaling from hardware, complex
     @abstractmethod
     def get_probe_amplitude_scaling(self):
         pass
 
+    # set the probe scaling from hardware, complex
     @abstractmethod
     def set_probe_amplitude_scaling(self, scale):
         pass
 
+    # get the cavity voltage as scalar from hardware (MV)
+    # this method can return None if such a device is not available
     @abstractmethod
     def get_cavity_voltage(self):
         pass

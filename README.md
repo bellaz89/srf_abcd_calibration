@@ -72,13 +72,7 @@ This switch is useful to see if a particular type of LLRF system can be used. Th
 ### Run the program in non-graphical mode and print the results
 
 ```bash
-  srf_abcd_calibration --nox=dummy_xfel --verbose
-```
-
-generates
-
-```
-
+  srf_abcd_calibration --nox=Dummy/1.3GHz --verbose
 ```
 
 Customize stations
@@ -101,11 +95,17 @@ defines a new station named `MyLLRFStation` with type `Dummy.
 
 The common station properties are listed below
 
-| Configuration parameter | Meaning                                     | Default |
-| ----------------------- | ------------------------------------------- | ------- |
-| name                    | Optional name that overrides the table name | None    |
-| type                    | LLRF system type. See below                 | None    |
-
+| Configuration parameter | Meaning                                         | Default      |
+| ----------------------- | ----------------------------------------------- | ------------ |
+| name                    | Optional name that overrides the table name     | None         |
+| type                    | LLRF system type. See below                     | None         |
+| start_time              | Optional start time of the RF pulse (s)         | 0            |
+| stop_time               | Optional stop time of the RF pulse (s)          | None         |
+| max_adc_scaling         | Optional maximum trace scaling to apply to HW   | 2.0          |
+| min_adc_scaling         | Optional minumum trace scaling to apply to HW   | 0.1          |
+| max_abcd_scaling        | Optional maximum magnitude of abcd coefficients | 2.0          |
+| plot_det_scale          | Optional plotting range for detuning (Hz)       | [-750, 750]  |
+| plot_hbw_scale          | Optional plotting range for bandwidth (Hz)      | [-250, 1250] |
 
 Station types
 -------------
@@ -193,7 +193,7 @@ Useful for debugging and presentation.
 Example configuration
 ---------------------
 
-```
+```toml
 # CMTB SCAV
 [CMTBSCAV]
 name="CMTB/SCAV"
@@ -213,9 +213,129 @@ type="Dummy"
 f0=1.3e9
 hbw=65
 
+# ChimeraTK backend
+[CMTBCHIMERATK]
+name="CMTB/ChimeraTK"
+type="ChimeraTK"
+dmap_file="file.dmap"
+device_name="cmtb_scav"
+probe_amp_address="PROBE.SCAV.CMTB/AMPL"
+probe_pha_address="PROBE.SCAV.CMTB/PHASE"
+vforw_amp_address="FORWARD.SCAV.CMTB/AMPL"
+vforw_pha_address="FORWARD.SCAV.CMTB/PHASE"
+vrefl_amp_address="REFLECTED.SCAV.CMTB/AMPL"
+vrefl_pha_address="REFLECTED.SCAV.CMTB/PHASE"
+probe_cal_amp_address="PROBE.SCAV.CMTB/CAL_SCA"
+probe_cal_pha_address="PROBE.SCAV.CMTB/CAL_ROT"
+vforw_cal_amp_address="FORWARD.SCAV.CMTB/CAL_SCA"
+vforw_cal_pha_address="FORWARD.SCAV.CMTB/CAL_ROT"
+vrefl_cal_amp_address="REFLECTED.SCAV.CMTB/CAL_SCA"
+vrefl_cal_pha_address="REFLECTED.SCAV.CMTB/CAL_ROT"
+pulse_delay_address="CTRL.SCAV.CMTB/PULSE_DELAY"
+pulse_filling_address="CTRL.SCAV.CMTB/PULSE_FILLING"
+pulse_flattop_address="CTRL.SCAV.CMTB/PULSE_FLATTOP"
+decoupling_a_re_address="CTRL.SCAV.CMTB/DECOUPLING.A_RE"
+decoupling_a_im_address="CTRL.SCAV.CMTB/DECOUPLING.A_IM"
+decoupling_b_re_address="CTRL.SCAV.CMTB/DECOUPLING.B_RE"
+decoupling_b_im_address="CTRL.SCAV.CMTB/DECOUPLING.B_IM"
+decoupling_c_re_address="CTRL.SCAV.CMTB/DECOUPLING.C_RE"
+decoupling_c_im_address="CTRL.SCAV.CMTB/DECOUPLING.C_IM"
+decoupling_d_re_address="CTRL.SCAV.CMTB/DECOUPLING.D_RE"
+decoupling_d_im_address="CTRL.SCAV.CMTB/DECOUPLING.D_IM"
+ql_address="CTRL.SCAV.CMTB/QL"
+f0_address="CTRL.SCAV.CMTB/F0"
+fs_address="CTRL.SCAV.CMTB/FS"
 ```
 
+The ChimeraTK backend can use a `.dmap` file as the following
 
+```
+  LOAD_LIB /usr/lib/libChimeraTK-DeviceAccess-DoocsBackend.so
+  cmtb_scav (doocs:CMTB.RF/LLRF.CONTROLLER)
+```
+
+The above lines load the DoocsBackend plugin and define an alias name for a DOOCS device.
+Refer to the [documentation of deviceaccess][7] to see if your control system is supported.
+
+Add a custom station
+====================
+
+Additional station types can be registered. To do that the class `Station` in station.py has to be subclassed.
+
+The following abstract methods must be overridden:
+
+```python3
+class Station(ABC)
+
+    # ...
+
+    # return the cavity resonance frequency(Hz), the sampling frequency(Hz),
+    # the probe, vforw, and vrefl in complex notation
+    # the flattop start time, the decay_time
+    @abstractmethod
+    def get_rf_traces_params(self):
+        pass
+
+    # get the abcd scaling from hardware, complex
+    @abstractmethod
+    def get_abcd_scaling(self):
+        pass
+
+    # set the abcd scaling to hardware, complex
+    @abstractmethod
+    def set_abcd_scaling(self, a, b, c, d):
+        pass
+
+    # get the half bandwidth to hardware
+    @abstractmethod
+    def get_hbw_decay(self):
+        pass
+
+    # set the half bandwidth to hardware
+    @abstractmethod
+    def set_hbw_decay(seĺf, hbw):
+        pass
+
+    # get the forward and reflected (XY) scaling from hardware, complex
+    @abstractmethod
+    def get_xy_scaling(self):
+        pass
+
+    # set the forward and reflected (XY) scaling to hardware, complex
+    @abstractmethod
+    def set_xy_scaling(self, x, y):
+        pass
+
+    # get the probe scaling from hardware, complex
+    @abstractmethod
+    def get_probe_amplitude_scaling(self):
+        pass
+
+    # set the probe scaling from hardware, complex
+    @abstractmethod
+    def set_probe_amplitude_scaling(self, scale):
+        pass
+
+    # get the cavity voltage as scalar from hardware (MV)
+    # this method can return None if such a device is not available
+    @abstractmethod
+    def get_cavity_voltage(self):
+        pass
+
+```
+
+* make sure that `get_rf_traces_params` returns all the RF traces correctly aligned
+* the program assumes that `get_rf_traces_params` returns traces calibrated with XY **but not** ABCD
+
+Additional the newly created class has to be registered in `station_picker.py`
+
+```python3
+STATION_TYPES = {"DesyDoocsSCAV" : DesyDoocsSCAVStation,
+                 "DesyDoocsMCAV" : DesyDoocsMCAVStation,
+                 "ChimeraTK" : ChimeraTKStation,
+                 # Add new station types here.
+                 "Dummy" : DummyStation}
+```
 
 Contacts
 ========
