@@ -7,6 +7,8 @@ The program works with different particle accelerator control systems ([Doocs][2
 
 This program refers to an unique combination of an SRF cavity and a LLRF system to be calibrated as a *station*.
 
+![program picture](calibration.png)
+
 Installation
 ============
 
