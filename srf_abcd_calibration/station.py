@@ -35,12 +35,6 @@ def ANG2HZ(ang):
     return ang / (2.0 * np.pi)
 
 class Station(ABC):
-
-    # Check if the class has the correct control system and therefore is loadable
-    @staticmethod
-    def loadable():
-        return False
-
     def __init__(self, name, conf):
         self.name = conf.get("name", name)
         self.conf = conf
@@ -66,6 +60,12 @@ class Station(ABC):
 
         # plot scale for bandwidth
         self.plot_hbw_scale = conf.get("plot_hbw_scale", [-250, 1250])
+
+    # Check if the type can be loaded by checking e.g. if the correct communication
+    # library is intalled
+    @staticmethod
+    def loadable():
+        return False
 
     # return the cavity resonance frequency(Hz), the sampling frequency(Hz),
     # the probe, vforw, and vrefl in complex notation

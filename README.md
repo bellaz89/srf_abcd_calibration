@@ -271,6 +271,12 @@ class Station(ABC)
 
     # ...
 
+    # Check if the type can be loaded by checking e.g. if the correct communication
+    # library is intalled
+    @staticmethod
+    def loadable():
+        return False
+
     # return the cavity resonance frequency(Hz), the sampling frequency(Hz),
     # the probe, vforw, and vrefl in complex notation
     # the flattop start time, the decay_time
